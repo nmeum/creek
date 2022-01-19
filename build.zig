@@ -1,12 +1,40 @@
 const std = @import("std");
+const Pkg = std.build.Pkg;
+
+const ScanProtocolsStep = @import("deps/zig-wayland/build.zig").ScanProtocolsStep;
 
 pub fn build(b: *std.build.Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
+    const scanner = ScanProtocolsStep.create(b);
+    scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
+    scanner.addProtocolPath("protocol/wlr-layer-shell-unstable-v1.xml");
+    scanner.addProtocolPath("protocol/river-status-unstable-v1.xml");
+
+    const wayland = Pkg{
+        .name = "wayland",
+        .path = .{ .generated = &scanner.result },
+    };
+    const pixman = Pkg{
+        .name = "pixman",
+        .path = .{ .path = "deps/zig-pixman/pixman.zig" },
+    };
+
     const exe = b.addExecutable("levee", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
+
+    exe.linkLibC();
+
+    exe.addPackage(wayland);
+    exe.linkSystemLibrary("wayland-client");
+    exe.step.dependOn(&scanner.step);
+    scanner.addCSource(exe);
+
+    exe.addPackage(pixman);
+    exe.linkSystemLibrary("pixman-1");
+
     exe.install();
 
     const run_cmd = exe.run();
