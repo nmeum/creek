@@ -20,6 +20,11 @@ pub fn build(b: *std.build.Builder) void {
         .name = "pixman",
         .path = .{ .path = "deps/zig-pixman/pixman.zig" },
     };
+    const fcft = Pkg{
+        .name = "fcft",
+        .path = .{ .path = "deps/zig-fcft/fcft.zig" },
+        .dependencies = &[_]Pkg{ pixman },
+    };
 
     const exe = b.addExecutable("levee", "src/main.zig");
     exe.setTarget(target);
@@ -34,6 +39,9 @@ pub fn build(b: *std.build.Builder) void {
 
     exe.addPackage(pixman);
     exe.linkSystemLibrary("pixman-1");
+
+    exe.addPackage(fcft);
+    exe.linkSystemLibrary("fcft");
 
     exe.install();
 

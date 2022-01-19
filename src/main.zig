@@ -18,7 +18,7 @@ pub fn main() anyerror!void {
     std.log.info("initialization", .{});
     var state: State = undefined;
     state.allocator = arena.allocator();
-    state.config = Config.init();
+    state.config = try Config.init();
     state.wayland = try Wayland.init(&state);
     state.loop = try Loop.init(&state);
 

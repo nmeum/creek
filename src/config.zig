@@ -1,3 +1,4 @@
+const fcft = @import("fcft");
 const pixman = @import("pixman");
 
 pub const Config = struct {
@@ -5,8 +6,11 @@ pub const Config = struct {
     backgroundColor: pixman.Color,
     foregroundColor: pixman.Color,
     border: u15,
+    font: *fcft.Font,
 
-    pub fn init() Config {
+    pub fn init() !Config {
+        var font_names = [_][*:0]const u8{"monospace:size=14"};
+
         return Config{
             .height = 32,
             .backgroundColor = .{
@@ -22,6 +26,7 @@ pub const Config = struct {
                 .alpha = 0xffff,
             },
             .border = 2,
+            .font = try fcft.Font.fromName(&font_names, null),
         };
     }
 };

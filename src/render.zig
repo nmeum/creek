@@ -1,3 +1,4 @@
+const fcft = @import("fcft");
 const pixman = @import("pixman");
 
 const Buffer = @import("shm.zig").Buffer;
@@ -84,4 +85,24 @@ fn renderTag(
     if (!tag.focused and tag.occupied) {
         _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &inner);
     }
+
+    const glyph_color = if (tag.focused) blk: {
+        break :blk &state.config.backgroundColor;
+    } else blk: {
+        break :blk &state.config.foregroundColor;
+    };
+    const font = state.config.font;
+    var char = pixman.Image.createSolidFill(glyph_color).?;
+    const glyph = try fcft.Glyph.rasterize(font, tag.label, .default);
+    const x = offset + @divFloor(size - glyph.width, 2);
+    const y = @divFloor(size - glyph.height, 2);
+    pixman.Image.composite32(
+        .over,
+        char,
+        glyph.pix,
+        pix,
+        0, 0, 0, 0,
+        x, y,
+        glyph.width, glyph.height,
+    );
 }
