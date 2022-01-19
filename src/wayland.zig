@@ -154,6 +154,10 @@ pub const Surface = struct {
     tagsSubsurface: *wl.Subsurface,
     tagsBuffers: [2]Buffer,
 
+    clockSurface: *wl.Surface,
+    clockSubsurface: *wl.Subsurface,
+    clockBuffers: [2]Buffer,
+
     configured: bool,
     width: u16,
     height: u16,
@@ -181,6 +185,13 @@ pub const Surface = struct {
         );
         self.tagsBuffers = mem.zeroes([2]Buffer);
 
+        self.clockSurface = try state.wayland.compositor.createSurface();
+        self.clockSubsurface = try state.wayland.subcompositor.getSubsurface(
+            self.clockSurface,
+            self.backgroundSurface,
+        );
+        self.clockBuffers = mem.zeroes([2]Buffer);
+
         // setup layer surface
         self.layerSurface.setSize(0, state.config.height);
         self.layerSurface.setAnchor(
@@ -192,11 +203,13 @@ pub const Surface = struct {
 
         // setup subsurfaces
         self.tagsSubsurface.setPosition(0, 0);
-        const region = try state.wayland.compositor.createRegion();
-        self.tagsSurface.setInputRegion(region);
-        region.destroy();
+        self.clockSubsurface.setPosition(0, 0);
+        // const region = try state.wayland.compositor.createRegion();
+        // self.tagsSurface.setInputRegion(region);
+        // region.destroy();
 
         self.tagsSurface.commit();
+        self.clockSurface.commit();
         self.backgroundSurface.commit();
 
         return self;
@@ -204,14 +217,22 @@ pub const Surface = struct {
 
     pub fn destroy(self: *Surface) void {
         self.output.surface = null;
+
         self.backgroundSurface.destroy();
         self.layerSurface.destroy();
-        self.tagsSurface.destroy();
-        self.tagsSubsurface.destroy();
         self.backgroundBuffers[0].deinit();
         self.backgroundBuffers[1].deinit();
+
+        self.tagsSurface.destroy();
+        self.tagsSubsurface.destroy();
         self.tagsBuffers[0].deinit();
         self.tagsBuffers[1].deinit();
+
+        self.clockSurface.destroy();
+        self.clockSubsurface.destroy();
+        self.clockBuffers[0].deinit();
+        self.clockBuffers[1].deinit();
+
         self.output.state.allocator.destroy(self);
     }
 
@@ -230,8 +251,10 @@ pub const Surface = struct {
 
                 render.renderBackground(surface) catch return;
                 render.renderTags(surface) catch return;
+                render.renderClock(surface) catch return;
 
                 surface.tagsSurface.commit();
+                surface.clockSurface.commit();
                 surface.backgroundSurface.commit();
             },
             .closed => {

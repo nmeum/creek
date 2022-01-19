@@ -5,19 +5,23 @@ const ArrayList = std.ArrayList;
 
 const wl = @import("wayland").client.wl;
 
+const render = @import("render.zig");
 const State = @import("main.zig").State;
 
 pub const Loop = struct {
     state: *State,
-
     fds: [2]os.pollfd,
-    timers: ArrayList(*Timer),
 
     pub fn init(state: *State) !Loop {
         const tfd = os.linux.timerfd_create(
             os.CLOCK.MONOTONIC,
             os.linux.TFD.CLOEXEC,
         );
+        const interval: os.linux.itimerspec = .{
+            .it_interval = .{ .tv_sec = 1, .tv_nsec = 0 },
+            .it_value = .{ .tv_sec = 1, .tv_nsec = 0 },
+        };
+        _ = os.linux.timerfd_settime(@intCast(i32, tfd), 0, &interval, null);
 
         return Loop{
             .state = state,
@@ -33,12 +37,12 @@ pub const Loop = struct {
                     .revents = 0,
                 },
             },
-            .timers = ArrayList(*Timer).init(state.allocator),
         };
     }
 
     pub fn run(self: *Loop) !void {
         const display = self.state.wayland.display;
+        const tfd = self.fds[1].fd;
 
         while (true) loop: {
             while (true) {
@@ -67,18 +71,19 @@ pub const Loop = struct {
 
             // timer
             if (self.fds[1].revents & os.POLL.IN != 0) {
-                for (self.timers.items) |timer, i| {
-                    const callback = timer.callback;
-                    const payload = timer.payload;
-                    _ = self.timers.swapRemove(i);
-                    callback(payload);
+                var expirations = mem.zeroes([8]u8);
+                _ = try os.read(tfd, &expirations);
+
+                for (self.state.wayland.outputs.items) |output| {
+                    if (output.surface) |surface| {
+                        if (surface.configured) {
+                            render.renderClock(surface) catch continue;
+                            surface.clockSurface.commit();
+                            surface.backgroundSurface.commit();
+                        }
+                    }
                 }
             }
         }
     }
-};
-
-pub const Timer = struct {
-    callback: fn (*anyopaque) void,
-    payload: *anyopaque,
 };
