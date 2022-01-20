@@ -80,15 +80,23 @@ pub fn renderClock(surface: *Surface) !void {
     const str = try formatDatetime(state);
     defer state.allocator.free(str);
 
-    // convert chars to ints for fcft
-    const cint = try state.allocator.alloc(c_int, str.len);
-    defer state.allocator.free(cint);
-    for (str) |char, i| cint[i] = char;
+    // ut8 encoding
+    const utf8 = try std.unicode.Utf8View.init(str);
+    var utf8_iter = utf8.iterator();
 
-    const run = try fcft.TextRun.rasterize(state.config.font, cint, .default);
-    defer run.destroy();
+    var runes = try state.allocator.alloc(c_int, str.len);
+    defer state.allocator.free(runes);
 
     var i: usize = 0;
+    while (utf8_iter.nextCodepoint()) |rune| : (i += 1) {
+        runes[i] = rune;
+    }
+    runes = state.allocator.resize(runes, i).?;
+
+    const run = try fcft.TextRun.rasterize(state.config.font, runes, .default);
+    defer run.destroy();
+
+    i = 0;
     var text_width: u32 = 0;
     while (i < run.count) : (i += 1) {
         text_width += @intCast(u32, run.glyphs[i].advance.x);
@@ -104,15 +112,69 @@ pub fn renderClock(surface: *Surface) !void {
         const glyph = run.glyphs[i];
         const x = x_offset + @intCast(i32, glyph.x);
         const y = y_offset + state.config.font.ascent - @intCast(i32, glyph.y);
-        pixman.Image.composite32(
-            .over,
-            color,
-            glyph.pix,
-            buffer.pix.?,
-            0, 0, 0, 0,
-            x, y,
-            glyph.width, glyph.height,
-        );
+        pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
+        x_offset += glyph.advance.x;
+    }
+
+    wlSurface.setBufferScale(surface.output.scale);
+    wlSurface.damageBuffer(0, 0, surface.width, surface.height);
+    wlSurface.attach(buffer.buffer, 0, 0);
+}
+
+pub fn renderCustom(surface: *Surface, str: []const u8) !void {
+    const state = surface.output.state;
+    const wlSurface = surface.customSurface;
+
+    const buffer = try Buffer.nextBuffer(
+        &surface.customBuffers,
+        surface.output.state.wayland.shm,
+        surface.width,
+        surface.height,
+    );
+    buffer.busy = true;
+
+    // clear the buffer
+    const bg_area = [_]pixman.Rectangle16{
+        .{ .x = 0, .y = 0, .width = surface.width, .height = surface.height },
+    };
+    const bg_color = mem.zeroes(pixman.Color);
+    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
+
+    // ut8 encoding
+    const utf8 = try std.unicode.Utf8View.init(str);
+    var utf8_iter = utf8.iterator();
+
+    var runes = try state.allocator.alloc(c_int, str.len);
+    defer state.allocator.free(runes);
+
+    var i: usize = 0;
+    while (utf8_iter.nextCodepoint()) |rune| : (i += 1) {
+        runes[i] = rune;
+    }
+    runes = state.allocator.resize(runes, i).?;
+
+    const run = try fcft.TextRun.rasterize(state.config.font, runes, .default);
+    defer run.destroy();
+
+    // compute offsets
+    i = 0;
+    var text_width: u32 = 0;
+    while (i < run.count) : (i += 1) {
+        text_width += @intCast(u32, run.glyphs[i].advance.x);
+    }
+
+    const font_height = @intCast(u32, state.config.font.height);
+    var x_offset = @intCast(i32, surface.width - text_width);
+    var y_offset = @intCast(i32, @divFloor(surface.height - font_height, 2));
+
+    // resterize
+    i = 0;
+    var color = pixman.Image.createSolidFill(&state.config.foregroundColor).?;
+    while (i < run.count) : (i += 1) {
+        const glyph = run.glyphs[i];
+        const x = x_offset + @intCast(i32, glyph.x);
+        const y = y_offset + state.config.font.ascent - @intCast(i32, glyph.y);
+        pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
         x_offset += glyph.advance.x;
     }
 
@@ -164,15 +226,7 @@ fn renderTag(
     const glyph = try fcft.Glyph.rasterize(font, tag.label, .default);
     const x = offset + @divFloor(size - glyph.width, 2);
     const y = @divFloor(size - glyph.height, 2);
-    pixman.Image.composite32(
-        .over,
-        char,
-        glyph.pix,
-        pix,
-        0, 0, 0, 0,
-        x, y,
-        glyph.width, glyph.height,
-    );
+    pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
 }
 
 fn formatDatetime(state: *State) ![]const u8 {

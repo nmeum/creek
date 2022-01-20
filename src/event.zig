@@ -10,7 +10,7 @@ const State = @import("main.zig").State;
 
 pub const Loop = struct {
     state: *State,
-    fds: [2]os.pollfd,
+    fds: [3]os.pollfd,
 
     pub fn init(state: *State) !Loop {
         const tfd = os.linux.timerfd_create(
@@ -33,6 +33,11 @@ pub const Loop = struct {
                 },
                 .{
                     .fd = @intCast(os.fd_t, tfd),
+                    .events = os.POLL.IN,
+                    .revents = 0,
+                },
+                .{
+                    .fd = os.linux.STDIN_FILENO,
                     .events = os.POLL.IN,
                     .revents = 0,
                 },
@@ -79,6 +84,23 @@ pub const Loop = struct {
                         if (surface.configured) {
                             render.renderClock(surface) catch continue;
                             surface.clockSurface.commit();
+                            surface.backgroundSurface.commit();
+                        }
+                    }
+                }
+            }
+
+            // stdin
+            if (self.fds[2].revents & os.POLL.IN != 0) {
+                var buffer = [_]u8{0} ** 256;
+                const len = try os.read(self.fds[2].fd, &buffer);
+                if (len == 0) continue;
+
+                for (self.state.wayland.outputs.items) |output| {
+                    if (output.surface) |surface| {
+                        if (surface.configured) {
+                            render.renderCustom(surface, buffer[0 .. len - 1]) catch continue;
+                            surface.customSurface.commit();
                             surface.backgroundSurface.commit();
                         }
                     }

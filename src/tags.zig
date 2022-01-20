@@ -80,7 +80,7 @@ pub const Tags = struct {
             const payload = try std.fmt.allocPrintZ(
                 state.allocator,
                 "{d}",
-                .{ @as(u32, 1) << @intCast(u5, index) },
+                .{@as(u32, 1) << @intCast(u5, index)},
             );
             defer state.allocator.free(payload);
 

@@ -116,11 +116,11 @@ pub const Wayland = struct {
         }
         for (self.outputs.items) |output| {
             if (output.surface) |surface| {
-                if (
-                    surface.backgroundSurface == wlSurface or
+                if (surface.backgroundSurface == wlSurface or
                     surface.tagsSurface == wlSurface or
-                    surface.clockSurface == wlSurface
-                ) {
+                    surface.clockSurface == wlSurface or
+                    surface.customSurface == wlSurface)
+                {
                     return surface;
                 }
             }
@@ -281,19 +281,24 @@ pub const Surface = struct {
     clockSubsurface: *wl.Subsurface,
     clockBuffers: [2]Buffer,
 
+    customSurface: *wl.Surface,
+    customSubsurface: *wl.Subsurface,
+    customBuffers: [2]Buffer,
+
     configured: bool,
     width: u16,
     height: u16,
 
     pub fn create(output: *Output) !*Surface {
         const state = output.state;
+        const wayland = state.wayland;
 
         const self = try state.allocator.create(Surface);
         self.output = output;
         self.configured = false;
 
-        self.backgroundSurface = try state.wayland.compositor.createSurface();
-        self.layerSurface = try state.wayland.layerShell.getLayerSurface(
+        self.backgroundSurface = try wayland.compositor.createSurface();
+        self.layerSurface = try wayland.layerShell.getLayerSurface(
             self.backgroundSurface,
             output.wlOutput,
             .overlay,
@@ -301,19 +306,26 @@ pub const Surface = struct {
         );
         self.backgroundBuffers = mem.zeroes([2]Buffer);
 
-        self.tagsSurface = try state.wayland.compositor.createSurface();
-        self.tagsSubsurface = try state.wayland.subcompositor.getSubsurface(
+        self.tagsSurface = try wayland.compositor.createSurface();
+        self.tagsSubsurface = try wayland.subcompositor.getSubsurface(
             self.tagsSurface,
             self.backgroundSurface,
         );
         self.tagsBuffers = mem.zeroes([2]Buffer);
 
-        self.clockSurface = try state.wayland.compositor.createSurface();
-        self.clockSubsurface = try state.wayland.subcompositor.getSubsurface(
+        self.clockSurface = try wayland.compositor.createSurface();
+        self.clockSubsurface = try wayland.subcompositor.getSubsurface(
             self.clockSurface,
             self.backgroundSurface,
         );
         self.clockBuffers = mem.zeroes([2]Buffer);
+
+        self.customSurface = try wayland.compositor.createSurface();
+        self.customSubsurface = try wayland.subcompositor.getSubsurface(
+            self.customSurface,
+            self.backgroundSurface,
+        );
+        self.customBuffers = mem.zeroes([2]Buffer);
 
         // setup layer surface
         self.layerSurface.setSize(0, state.config.height);
@@ -327,9 +339,7 @@ pub const Surface = struct {
         // setup subsurfaces
         self.tagsSubsurface.setPosition(0, 0);
         self.clockSubsurface.setPosition(0, 0);
-        // const region = try state.wayland.compositor.createRegion();
-        // self.tagsSurface.setInputRegion(region);
-        // region.destroy();
+        self.customSubsurface.setPosition(0, 0);
 
         self.tagsSurface.commit();
         self.clockSurface.commit();
@@ -356,6 +366,11 @@ pub const Surface = struct {
         self.clockBuffers[0].deinit();
         self.clockBuffers[1].deinit();
 
+        self.customSurface.destroy();
+        self.customSubsurface.destroy();
+        self.customBuffers[0].deinit();
+        self.customBuffers[1].deinit();
+
         self.output.state.allocator.destroy(self);
     }
 
@@ -378,6 +393,7 @@ pub const Surface = struct {
 
                 surface.tagsSurface.commit();
                 surface.clockSurface.commit();
+                surface.customSurface.commit();
                 surface.backgroundSurface.commit();
             },
             .closed => {
