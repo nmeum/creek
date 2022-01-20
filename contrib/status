@@ -1,0 +1,128 @@
+#!/bin/sh
+
+PrgName=${0##*/}
+
+PrgDir="$HOME/.local/share/$PrgName"
+mkdir -p "$PrgDir"
+PidPath="$PrgDir/$PrgName.pid"
+
+Usage() {
+	while read -r Line; do
+		printf '%b\n' "$Line"
+	done <<-EOF
+		\rUsage: $PrgName OPTION
+		\rStatusbar widgets for levee.
+
+		\rOptions:
+		\r  -h, --help, -?      display this help and exit
+		\r  -r, --refresh       refresh
+		\r  -s, --stop          stop daemon if one exists
+	EOF
+}
+
+Die() {
+	printf 'error: %s\n' "$1" 1>&2
+	exit 1
+}
+
+Battery() {
+	CapacityPath='/sys/class/power_supply/BAT1/capacity'
+	StatusPath='/sys/class/power_supply/BAT1/status'
+	if [ -r "$CapacityPath" ] && [ -r "$StatusPath" ]; then
+		read -r Status <"$StatusPath"
+		case $Status in
+		Discharging)
+			Icon="🔋"
+			;;
+		Charging)
+			Icon="🔌"
+			;;
+		Full)
+			Icon="⚡"
+			;;
+		Unknown)
+			Icon="❓"
+			;;
+		esac
+		read -r Capacity <"$CapacityPath"
+		printf '%s %4s%%\n' "$Icon" "$Capacity"
+	else
+		Die 'unable to access power supply files'
+	fi
+}
+
+Volume() {
+	if ! command -v pulsemixer >/dev/null; then
+		Die 'missing dependency: pulsemixer'
+	fi
+
+	if [ "$(pulsemixer --get-mute)" -eq 1 ]; then
+		printf '   🔇   \n'
+	else
+		Value=$(pulsemixer --get-volume)
+		printf '🔊 %4s%%\n' "${Value%% *}"
+	fi
+}
+
+Backlight() {
+	Brightness=$(brightnessctl get)
+	MaxBrightness=$(brightnessctl max)
+	Value=$((100 * Brightness / MaxBrightness))
+	printf '💡 %4d%%\n' "${Value%%.*}"
+}
+
+Refresh() {
+	printf '%s' "$$" >"$PidPath"
+	printf '%s | %s | %s\n' "$(Backlight)" "$(Volume)" "$(Battery)"
+}
+
+GetDaemonPid() {
+	if [ -r "$PidPath" ]; then
+		read -r Pid <"$PidPath"
+		printf '%s' "$Pid"
+	fi
+}
+
+SendRefresh() {
+	Pid=$(GetDaemonPid)
+	if [ -n "$Pid" ]; then
+		kill -USR1 "$Pid"
+	else
+		Die 'no daemon to refresh'
+	fi
+}
+
+StopDaemon() {
+	Pid=$(GetDaemonPid)
+	if [ -n "$Pid" ] && kill -0 "$Pid" ; then
+		kill -15 "$Pid"
+	else
+		Die 'no daemon to kill'
+	fi
+}
+
+if [ $# -gt 1 ]; then
+	Usage
+	exit 1
+fi
+
+case $1 in
+--help | -h | -\?)
+	Usage
+	exit 0 ;;
+--refresh | -r)
+	SendRefresh
+	exit 0 ;;
+--stop | -s)
+	StopDaemon
+	exit 0 ;;
+esac
+
+trap ':' USR1
+trap 'rm $PidPath; exit 0' INT TERM
+
+while true; do
+	Refresh
+	sleep 10 &
+	wait $!
+done
