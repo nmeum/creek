@@ -18,14 +18,16 @@ pub const Wayland = struct {
     registry: *wl.Registry,
 
     outputs: ArrayList(*Output),
+    seats: ArrayList(*Seat),
 
     compositor: *wl.Compositor,
     subcompositor: *wl.Subcompositor,
     shm: *wl.Shm,
     layerShell: *zwlr.LayerShellV1,
     statusManager: *zriver.StatusManagerV1,
+    control: *zriver.ControlV1,
 
-    globalsRegistered: [5]bool,
+    globalsRegistered: [6]bool,
 
     pub fn init(state: *State) !Wayland {
         const display = try wl.Display.connect(null);
@@ -35,12 +37,14 @@ pub const Wayland = struct {
             .display = display,
             .registry = try display.getRegistry(),
             .outputs = ArrayList(*Output).init(state.allocator),
+            .seats = ArrayList(*Seat).init(state.allocator),
             .compositor = undefined,
             .subcompositor = undefined,
             .shm = undefined,
             .layerShell = undefined,
             .statusManager = undefined,
-            .globalsRegistered = mem.zeroes([5]bool),
+            .control = undefined,
+            .globalsRegistered = mem.zeroes([6]bool),
         };
     }
 
@@ -76,9 +80,15 @@ pub const Wayland = struct {
                 } else if (strcmp(interface, zriver.StatusManagerV1.getInterface().name) == 0) {
                     wayland.statusManager = registry.bind(name, zriver.StatusManagerV1, 1) catch return;
                     wayland.globalsRegistered[4] = true;
+                } else if (strcmp(interface, zriver.ControlV1.getInterface().name) == 0) {
+                    wayland.control = registry.bind(name, zriver.ControlV1, 1) catch return;
+                    wayland.globalsRegistered[5] = true;
                 } else if (strcmp(interface, wl.Output.getInterface().name) == 0) {
                     const output = Output.create(state, registry, name) catch return;
                     wayland.outputs.append(output) catch return;
+                } else if (strcmp(interface, wl.Seat.getInterface().name) == 0) {
+                    const seat = Seat.create(state, registry, name) catch return;
+                    wayland.seats.append(seat) catch return;
                 }
             },
             .global_remove => |data| {
@@ -89,8 +99,33 @@ pub const Wayland = struct {
                         break;
                     }
                 }
+                for (wayland.seats.items) |seat, i| {
+                    if (seat.globalName == data.name) {
+                        seat.destroy();
+                        _ = wayland.seats.swapRemove(i);
+                        break;
+                    }
+                }
             },
         }
+    }
+
+    pub fn findSurface(self: *Wayland, wlSurface: ?*wl.Surface) ?*Surface {
+        if (wlSurface == null) {
+            return null;
+        }
+        for (self.outputs.items) |output| {
+            if (output.surface) |surface| {
+                if (
+                    surface.backgroundSurface == wlSurface or
+                    surface.tagsSurface == wlSurface or
+                    surface.clockSurface == wlSurface
+                ) {
+                    return surface;
+                }
+            }
+        }
+        return null;
     }
 };
 
@@ -139,6 +174,94 @@ pub const Output = struct {
                     output.surface = Surface.create(output) catch return;
                 }
             },
+        }
+    }
+};
+
+pub const Seat = struct {
+    state: *State,
+    wlSeat: *wl.Seat,
+    globalName: u32,
+
+    pointer: struct {
+        wlPointer: ?*wl.Pointer,
+        x: i32,
+        y: i32,
+        surface: ?*Surface,
+    },
+
+    pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Seat {
+        const self = try state.allocator.create(Seat);
+        self.state = state;
+        self.wlSeat = try registry.bind(name, wl.Seat, 3);
+        self.globalName = name;
+
+        self.pointer.wlPointer = null;
+        self.pointer.surface = null;
+
+        self.wlSeat.setListener(*Seat, listener, self);
+        return self;
+    }
+
+    pub fn destroy(self: *Seat) void {
+        if (self.pointer.wlPointer) |wlPointer| {
+            wlPointer.release();
+        }
+        self.wlSeat.release();
+        self.state.allocator.destroy(self);
+    }
+
+    fn listener(wlSeat: *wl.Seat, event: wl.Seat.Event, seat: *Seat) void {
+        switch (event) {
+            .capabilities => |data| {
+                if (seat.pointer.wlPointer) |wlPointer| {
+                    wlPointer.release();
+                    seat.pointer.wlPointer = null;
+                }
+                if (data.capabilities.pointer) {
+                    seat.pointer.wlPointer = wlSeat.getPointer() catch return;
+                    seat.pointer.wlPointer.?.setListener(
+                        *Seat,
+                        pointerListener,
+                        seat,
+                    );
+                }
+            },
+            .name => {},
+        }
+    }
+
+    fn pointerListener(
+        _: *wl.Pointer,
+        event: wl.Pointer.Event,
+        seat: *Seat,
+    ) void {
+        switch (event) {
+            .enter => |data| {
+                seat.pointer.x = data.surface_x.toInt();
+                seat.pointer.y = data.surface_y.toInt();
+                const surface = seat.state.wayland.findSurface(data.surface);
+                seat.pointer.surface = surface;
+            },
+            .leave => |_| {
+                seat.pointer.surface = null;
+            },
+            .motion => |data| {
+                seat.pointer.x = data.surface_x.toInt();
+                seat.pointer.y = data.surface_y.toInt();
+            },
+            .button => |data| {
+                if (data.state != .pressed) return;
+                if (seat.pointer.surface) |surface| {
+                    if (!surface.configured) return;
+
+                    const x = @intCast(u32, seat.pointer.x);
+                    if (x < surface.height * 9) {
+                        surface.output.tags.handleClick(x, seat) catch return;
+                    }
+                }
+            },
+            else => {},
         }
     }
 };

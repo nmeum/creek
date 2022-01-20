@@ -1,7 +1,10 @@
+const std = @import("std");
+
 const zriver = @import("wayland").client.zriver;
 
 const Output = @import("wayland.zig").Output;
 const render = @import("render.zig");
+const Seat = @import("wayland.zig").Seat;
 const State = @import("main.zig").State;
 
 pub const Tag = struct {
@@ -17,9 +20,10 @@ pub const Tags = struct {
 
     pub fn create(state: *State, output: *Output) !*Tags {
         const self = try state.allocator.create(Tags);
+        const wayland = state.wayland;
 
         self.output = output;
-        self.outputStatus = try state.wayland.statusManager.getRiverOutputStatus(
+        self.outputStatus = try wayland.statusManager.getRiverOutputStatus(
             output.wlOutput,
         );
         for (self.tags) |*tag, i| {
@@ -64,6 +68,26 @@ pub const Tags = struct {
                 surface.tagsSurface.commit();
                 surface.backgroundSurface.commit();
             }
+        }
+    }
+
+    pub fn handleClick(self: *Tags, x: u32, seat: *Seat) !void {
+        const state = self.output.state;
+        const control = state.wayland.control;
+
+        if (self.output.surface) |surface| {
+            const index = x / surface.height;
+            const payload = try std.fmt.allocPrintZ(
+                state.allocator,
+                "{d}",
+                .{ @as(u32, 1) << @intCast(u5, index) },
+            );
+            defer state.allocator.free(payload);
+
+            control.addArgument("set-focused-tags");
+            control.addArgument(payload);
+            const callback = try control.runCommand(seat.wlSeat);
+            _ = callback;
         }
     }
 };

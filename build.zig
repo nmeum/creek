@@ -11,6 +11,7 @@ pub fn build(b: *std.build.Builder) void {
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addProtocolPath("protocol/wlr-layer-shell-unstable-v1.xml");
     scanner.addProtocolPath("protocol/river-status-unstable-v1.xml");
+    scanner.addProtocolPath("protocol/river-control-unstable-v1.xml");
 
     const wayland = Pkg{
         .name = "wayland",
