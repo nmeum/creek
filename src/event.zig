@@ -13,6 +13,7 @@ pub const Loop = struct {
     fds: [3]os.pollfd,
 
     pub fn init(state: *State) !Loop {
+        // Timer
         const tfd = os.linux.timerfd_create(
             os.CLOCK.MONOTONIC,
             os.linux.TFD.CLOEXEC,
@@ -22,6 +23,9 @@ pub const Loop = struct {
             .it_value = .{ .tv_sec = 1, .tv_nsec = 0 },
         };
         _ = os.linux.timerfd_settime(@intCast(i32, tfd), 0, &interval, null);
+
+        // inotify
+        const ifd = os.linux.inotify_init1(os.linux.IN.CLOEXEC);
 
         return Loop{
             .state = state,
@@ -37,7 +41,7 @@ pub const Loop = struct {
                     .revents = 0,
                 },
                 .{
-                    .fd = os.linux.STDIN_FILENO,
+                    .fd = @intCast(os.fd_t, ifd),
                     .events = os.POLL.IN,
                     .revents = 0,
                 },
@@ -90,17 +94,17 @@ pub const Loop = struct {
                 }
             }
 
-            // stdin
+            // inotify
             if (self.fds[2].revents & os.POLL.IN != 0) {
-                var buffer = [_]u8{0} ** 256;
-                const len = try os.read(self.fds[2].fd, &buffer);
-                if (len == 0) continue;
+                const ifd = self.fds[2].fd;
+                var event = mem.zeroes(os.linux.inotify_event);
+                _ = try os.read(ifd, mem.asBytes(&event));
 
                 for (self.state.wayland.outputs.items) |output| {
                     if (output.surface) |surface| {
                         if (surface.configured) {
-                            render.renderCustom(surface, buffer[0 .. len - 1]) catch continue;
-                            surface.customSurface.commit();
+                            render.renderModules(surface) catch continue;
+                            surface.modulesSurface.commit();
                             surface.backgroundSurface.commit();
                         }
                     }

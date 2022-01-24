@@ -121,30 +121,31 @@ pub fn renderClock(surface: *Surface) !void {
     wlSurface.attach(buffer.buffer, 0, 0);
 }
 
-pub fn renderCustom(surface: *Surface, str: []const u8) !void {
+pub fn renderModules(surface: *Surface) !void {
     const state = surface.output.state;
-    const wlSurface = surface.customSurface;
+    const wlSurface = surface.modulesSurface;
 
     const buffer = try Buffer.nextBuffer(
-        &surface.customBuffers,
+        &surface.modulesBuffers,
         surface.output.state.wayland.shm,
         surface.width,
         surface.height,
     );
     buffer.busy = true;
 
-    // clear the buffer
-    const bg_area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = surface.width, .height = surface.height },
-    };
-    const bg_color = mem.zeroes(pixman.Color);
-    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
+    // compose string
+    var string = std.ArrayList(u8).init(state.allocator);
+    const writer = string.writer();
+    for (state.modules.items) |*module| {
+        try std.fmt.format(writer, " | ", .{});
+        try module.print(writer);
+    }
 
     // ut8 encoding
-    const utf8 = try std.unicode.Utf8View.init(str);
+    const utf8 = try std.unicode.Utf8View.init(string.items);
     var utf8_iter = utf8.iterator();
 
-    var runes = try state.allocator.alloc(c_int, str.len);
+    var runes = try state.allocator.alloc(c_int, string.items.len);
     defer state.allocator.free(runes);
 
     var i: usize = 0;
@@ -153,10 +154,17 @@ pub fn renderCustom(surface: *Surface, str: []const u8) !void {
     }
     runes = state.allocator.resize(runes, i).?;
 
+    // clear the buffer
+    const bg_area = [_]pixman.Rectangle16{
+        .{ .x = 0, .y = 0, .width = surface.width, .height = surface.height },
+    };
+    const bg_color = mem.zeroes(pixman.Color);
+    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
+
+    // compute offsets
     const run = try fcft.TextRun.rasterize(state.config.font, runes, .default);
     defer run.destroy();
 
-    // compute offsets
     i = 0;
     var text_width: u32 = 0;
     while (i < run.count) : (i += 1) {

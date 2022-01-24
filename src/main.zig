@@ -2,6 +2,7 @@ const std = @import("std");
 
 const Config = @import("config.zig").Config;
 const Loop = @import("event.zig").Loop;
+const modules = @import("modules.zig");
 const Wayland = @import("wayland.zig").Wayland;
 
 pub const State = struct {
@@ -9,6 +10,9 @@ pub const State = struct {
     config: Config,
     wayland: Wayland,
     loop: Loop,
+
+    battery: modules.Battery,
+    modules: std.ArrayList(modules.Module),
 };
 
 pub fn main() anyerror!void {
@@ -21,6 +25,11 @@ pub fn main() anyerror!void {
     state.config = try Config.init();
     state.wayland = try Wayland.init(&state);
     state.loop = try Loop.init(&state);
+
+    std.log.info("modules initialization", .{});
+    state.modules = std.ArrayList(modules.Module).init(state.allocator);
+    state.battery = try modules.Battery.init(&state);
+    try state.modules.append(state.battery.module());
 
     std.log.info("wayland globals registration", .{});
     try state.wayland.registerGlobals();

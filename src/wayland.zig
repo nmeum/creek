@@ -119,7 +119,7 @@ pub const Wayland = struct {
                 if (surface.backgroundSurface == wlSurface or
                     surface.tagsSurface == wlSurface or
                     surface.clockSurface == wlSurface or
-                    surface.customSurface == wlSurface)
+                    surface.modulesSurface == wlSurface)
                 {
                     return surface;
                 }
@@ -281,9 +281,9 @@ pub const Surface = struct {
     clockSubsurface: *wl.Subsurface,
     clockBuffers: [2]Buffer,
 
-    customSurface: *wl.Surface,
-    customSubsurface: *wl.Subsurface,
-    customBuffers: [2]Buffer,
+    modulesSurface: *wl.Surface,
+    modulesSubsurface: *wl.Subsurface,
+    modulesBuffers: [2]Buffer,
 
     configured: bool,
     width: u16,
@@ -320,12 +320,12 @@ pub const Surface = struct {
         );
         self.clockBuffers = mem.zeroes([2]Buffer);
 
-        self.customSurface = try wayland.compositor.createSurface();
-        self.customSubsurface = try wayland.subcompositor.getSubsurface(
-            self.customSurface,
+        self.modulesSurface = try wayland.compositor.createSurface();
+        self.modulesSubsurface = try wayland.subcompositor.getSubsurface(
+            self.modulesSurface,
             self.backgroundSurface,
         );
-        self.customBuffers = mem.zeroes([2]Buffer);
+        self.modulesBuffers = mem.zeroes([2]Buffer);
 
         // setup layer surface
         self.layerSurface.setSize(0, state.config.height);
@@ -339,7 +339,7 @@ pub const Surface = struct {
         // setup subsurfaces
         self.tagsSubsurface.setPosition(0, 0);
         self.clockSubsurface.setPosition(0, 0);
-        self.customSubsurface.setPosition(0, 0);
+        self.modulesSubsurface.setPosition(0, 0);
 
         self.tagsSurface.commit();
         self.clockSurface.commit();
@@ -366,10 +366,10 @@ pub const Surface = struct {
         self.clockBuffers[0].deinit();
         self.clockBuffers[1].deinit();
 
-        self.customSurface.destroy();
-        self.customSubsurface.destroy();
-        self.customBuffers[0].deinit();
-        self.customBuffers[1].deinit();
+        self.modulesSurface.destroy();
+        self.modulesSubsurface.destroy();
+        self.modulesBuffers[0].deinit();
+        self.modulesBuffers[1].deinit();
 
         self.output.state.allocator.destroy(self);
     }
@@ -390,10 +390,11 @@ pub const Surface = struct {
                 render.renderBackground(surface) catch return;
                 render.renderTags(surface) catch return;
                 render.renderClock(surface) catch return;
+                render.renderModules(surface) catch return;
 
                 surface.tagsSurface.commit();
                 surface.clockSurface.commit();
-                surface.customSurface.commit();
+                surface.modulesSurface.commit();
                 surface.backgroundSurface.commit();
             },
             .closed => {
