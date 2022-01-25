@@ -12,6 +12,7 @@ pub const State = struct {
     loop: Loop,
 
     battery: modules.Battery,
+    backlight: modules.Backlight,
     modules: std.ArrayList(modules.Module),
 };
 
@@ -28,6 +29,8 @@ pub fn main() anyerror!void {
 
     std.log.info("modules initialization", .{});
     state.modules = std.ArrayList(modules.Module).init(state.allocator);
+    state.backlight = try modules.Backlight.init(&state);
+    try state.modules.append(state.backlight.module());
     state.battery = try modules.Battery.init(&state);
     try state.modules.append(state.battery.module());
 
