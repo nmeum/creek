@@ -301,7 +301,7 @@ pub const Surface = struct {
         self.layerSurface = try wayland.layerShell.getLayerSurface(
             self.backgroundSurface,
             output.wlOutput,
-            .overlay,
+            .top,
             "levee",
         );
         self.backgroundBuffers = mem.zeroes([2]Buffer);
