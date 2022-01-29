@@ -1,15 +1,17 @@
 const std = @import("std");
 const mem = std.mem;
 
-const cTime = @cImport(@cInclude("time.h"));
 const fcft = @import("fcft");
 const pixman = @import("pixman");
 
 const Buffer = @import("shm.zig").Buffer;
+const c = @import("c.zig");
 const State = @import("main.zig").State;
 const Surface = @import("wayland.zig").Surface;
 const Tag = @import("tags.zig").Tag;
 const Tags = @import("tags.zig").Tags;
+
+pub const RenderFn = fn (*Surface) anyerror!void;
 
 pub fn renderBackground(surface: *Surface) !void {
     const state = surface.output.state;
@@ -239,9 +241,9 @@ fn renderTag(
 
 fn formatDatetime(state: *State) ![]const u8 {
     var buf = try state.allocator.alloc(u8, 256);
-    const now = cTime.time(null);
-    const local = cTime.localtime(&now);
-    const len = cTime.strftime(
+    const now = c.time.time(null);
+    const local = c.time.localtime(&now);
+    const len = c.time.strftime(
         buf.ptr,
         buf.len,
         state.config.clockFormat,

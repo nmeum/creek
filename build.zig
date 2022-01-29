@@ -32,6 +32,7 @@ pub fn build(b: *std.build.Builder) void {
     exe.setBuildMode(mode);
 
     exe.linkLibC();
+    exe.linkSystemLibrary("libudev");
 
     exe.addPackage(wayland);
     exe.linkSystemLibrary("wayland-client");

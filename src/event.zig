@@ -5,12 +5,14 @@ const ArrayList = std.ArrayList;
 
 const wl = @import("wayland").client.wl;
 
+const c = @import("c.zig");
 const render = @import("render.zig");
 const State = @import("main.zig").State;
 
 pub const Loop = struct {
     state: *State,
-    fds: [4]os.pollfd,
+    fds: [5]os.pollfd,
+    monitor: *c.udev.udev_monitor,
 
     pub fn init(state: *State) !Loop {
         // signals
@@ -35,6 +37,19 @@ pub const Loop = struct {
         // inotify
         const ifd = os.linux.inotify_init1(os.linux.IN.CLOEXEC);
 
+        // udev
+        const udev = c.udev.udev_new();
+        if (udev == null) return error.UdevError;
+        const monitor = c.udev.udev_monitor_new_from_netlink(udev, "udev");
+        if (monitor == null) return error.UdevError;
+        _ = c.udev.udev_monitor_filter_add_match_subsystem_devtype(
+            monitor,
+            "backlight",
+            null,
+        );
+        _ = c.udev.udev_monitor_enable_receiving(monitor);
+        const ufd = c.udev.udev_monitor_get_fd(monitor);
+
         return Loop{
             .state = state,
             .fds = .{
@@ -58,7 +73,13 @@ pub const Loop = struct {
                     .events = os.POLL.IN,
                     .revents = 0,
                 },
+                .{
+                    .fd = @intCast(os.fd_t, ufd),
+                    .events = os.POLL.IN,
+                    .revents = 0,
+                },
             },
+            .monitor= monitor.?,
         };
     }
 
@@ -100,16 +121,7 @@ pub const Loop = struct {
             if (self.fds[2].revents & os.POLL.IN != 0) {
                 var expirations = mem.zeroes([8]u8);
                 _ = try os.read(tfd, &expirations);
-
-                for (self.state.wayland.outputs.items) |output| {
-                    if (output.surface) |surface| {
-                        if (surface.configured) {
-                            render.renderClock(surface) catch continue;
-                            surface.clockSurface.commit();
-                            surface.backgroundSurface.commit();
-                        }
-                    }
-                }
+                self.renderAllSurfaces(render.renderClock);
             }
 
             // inotify
@@ -117,15 +129,24 @@ pub const Loop = struct {
                 const ifd = self.fds[3].fd;
                 var event = mem.zeroes(os.linux.inotify_event);
                 _ = try os.read(ifd, mem.asBytes(&event));
+                self.renderAllSurfaces(render.renderModules);
+            }
 
-                for (self.state.wayland.outputs.items) |output| {
-                    if (output.surface) |surface| {
-                        if (surface.configured) {
-                            render.renderModules(surface) catch continue;
-                            surface.modulesSurface.commit();
-                            surface.backgroundSurface.commit();
-                        }
-                    }
+            // udev
+            if (self.fds[4].revents & os.POLL.IN != 0) {
+                _ = c.udev.udev_monitor_receive_device(self.monitor);
+                self.renderAllSurfaces(render.renderModules);
+            }
+        }
+    }
+
+    fn renderAllSurfaces(self: *Loop, renderFn: render.RenderFn) void {
+        for (self.state.wayland.outputs.items) |output| {
+            if (output.surface) |surface| {
+                if (surface.configured) {
+                    renderFn(surface) catch continue;
+                    surface.modulesSurface.commit();
+                    surface.backgroundSurface.commit();
                 }
             }
         }
