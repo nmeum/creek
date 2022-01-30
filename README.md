@@ -16,8 +16,10 @@ zig build -Drelease-safe --prefix ~/.local install
 
 ## Usage
 
+Add the following toward the end of `$XDG_CONFIG_HOME/river/init`:
+
 ```
-levee
+riverctl spawn levee
 ```
 
 ## Dependencies

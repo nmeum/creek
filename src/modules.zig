@@ -52,7 +52,7 @@ pub const Battery = struct {
 
         return Battery{
             .state = state,
-            .context= context,
+            .context = context,
             .devices = devices,
         };
     }

@@ -24,7 +24,7 @@ pub fn build(b: *std.build.Builder) void {
     const fcft = Pkg{
         .name = "fcft",
         .path = .{ .path = "deps/zig-fcft/fcft.zig" },
-        .dependencies = &[_]Pkg{ pixman },
+        .dependencies = &[_]Pkg{pixman},
     };
     const udev = Pkg{
         .name = "udev",
