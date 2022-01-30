@@ -7,3 +7,6 @@
 [submodule "deps/zig-fcft"]
 	path = deps/zig-fcft
 	url = https://git.sr.ht/~andreafeletto/zig-fcft
+[submodule "deps/zig-udev"]
+	path = deps/zig-udev
+	url = https://git.sr.ht/~andreafeletto/zig-udev

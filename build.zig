@@ -26,13 +26,16 @@ pub fn build(b: *std.build.Builder) void {
         .path = .{ .path = "deps/zig-fcft/fcft.zig" },
         .dependencies = &[_]Pkg{ pixman },
     };
+    const udev = Pkg{
+        .name = "udev",
+        .path = .{ .path = "deps/zig-udev/udev.zig" },
+    };
 
     const exe = b.addExecutable("levee", "src/main.zig");
     exe.setTarget(target);
     exe.setBuildMode(mode);
 
     exe.linkLibC();
-    exe.linkSystemLibrary("libudev");
 
     exe.addPackage(wayland);
     exe.linkSystemLibrary("wayland-client");
@@ -44,6 +47,9 @@ pub fn build(b: *std.build.Builder) void {
 
     exe.addPackage(fcft);
     exe.linkSystemLibrary("fcft");
+
+    exe.addPackage(udev);
+    exe.linkSystemLibrary("libudev");
 
     exe.install();
 

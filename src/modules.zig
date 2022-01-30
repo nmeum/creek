@@ -5,7 +5,8 @@ const io = std.io;
 const mem = std.mem;
 const os = std.os;
 
-const c = @import("c.zig");
+const udev = @import("udev");
+
 const State = @import("main.zig").State;
 
 const StringWriter = std.ArrayList(u8).Writer;
@@ -128,7 +129,7 @@ pub const Battery = struct {
 
 pub const Backlight = struct {
     state: *State,
-    udev: *c.udev.udev,
+    context: *udev.Udev,
     devices: DeviceList,
 
     const Device = struct {
@@ -139,16 +140,15 @@ pub const Backlight = struct {
     const DeviceList = std.ArrayList(Device);
 
     pub fn init(state: *State) !Backlight {
-        const udev = c.udev.udev_new();
-        if (udev == null) return error.UdevError;
+        const context = try udev.Udev.new();
 
         var devices = DeviceList.init(state.allocator);
-        try updateDevices(state.allocator, udev.?, &devices);
+        try updateDevices(state.allocator, context, &devices);
         if (devices.items.len == 0) return error.NoDevicesFound;
 
         return Backlight{
             .state = state,
-            .udev = udev.?,
+            .context = context,
             .devices = devices,
         };
     }
@@ -160,7 +160,7 @@ pub const Backlight = struct {
     pub fn print(self_opaque: *anyopaque, writer: StringWriter) !void {
         const self = Module.cast(Backlight)(self_opaque);
 
-        try updateDevices(self.state.allocator, self.udev, &self.devices);
+        try updateDevices(self.state.allocator, self.context, &self.devices);
         const device = self.devices.items[0];
         var percent = @intToFloat(f64, device.value) * 100.0;
         percent /= @intToFloat(f64, device.max);
@@ -171,42 +171,31 @@ pub const Backlight = struct {
 
     fn updateDevices(
         allocator: mem.Allocator,
-        udev: *c.udev.udev,
+        context: *udev.Udev,
         devices: *DeviceList,
     ) !void {
-        const enumerate = c.udev.udev_enumerate_new(udev);
-        _ = c.udev.udev_enumerate_add_match_subsystem(enumerate, "backlight");
-        _ = c.udev.udev_enumerate_scan_devices(enumerate);
-        const entries = c.udev.udev_enumerate_get_list_entry(enumerate);
+        const enumerate = try udev.Enumerate.new(context);
+        try enumerate.addMatchSubsystem("backlight");
+        try enumerate.scanDevices();
+        const entries = enumerate.getListEntry();
 
-        var entry = entries;
-        while (entry != null) {
-            const path = c.udev.udev_list_entry_get_name(entry);
-            const device = c.udev.udev_device_new_from_syspath(udev, path);
-            try updateOrAppend(allocator, devices, device.?);
-
-            entry = c.udev.udev_list_entry_get_next(entries);
+        var maybe_entry = entries;
+        while (maybe_entry) |entry| {
+            const path = entry.getName();
+            const device = try udev.Device.newFromSyspath(context, path);
+            try updateOrAppend(allocator, devices, device);
+            maybe_entry = entry.getNext();
         }
     }
 
     fn updateOrAppend(
         allocator: mem.Allocator,
         devices: *DeviceList,
-        dev: *c.udev.udev_device,
+        dev: *udev.Device,
     ) !void {
-        const value_c = c.udev.udev_device_get_sysattr_value(
-            dev,
-            "actual_brightness",
-        );
-        const max_c = c.udev.udev_device_get_sysattr_value(
-            dev,
-            "max_brightness",
-        );
-        const name_c = c.udev.udev_device_get_sysname(dev);
-
-        const value = mem.span(value_c);
-        const max = mem.span(max_c);
-        const name = mem.span(name_c);
+        const value = try dev.getSysattrValue("actual_brightness");
+        const max = try dev.getSysattrValue("max_brightness");
+        const name = try dev.getSysname();
 
         const device = blk: {
             for (devices.items) |*device| {

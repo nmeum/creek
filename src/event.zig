@@ -4,6 +4,7 @@ const os = std.os;
 const ArrayList = std.ArrayList;
 
 const wl = @import("wayland").client.wl;
+const udev = @import("udev");
 
 const c = @import("c.zig");
 const render = @import("render.zig");
@@ -12,7 +13,7 @@ const State = @import("main.zig").State;
 pub const Loop = struct {
     state: *State,
     fds: [5]os.pollfd,
-    monitor: *c.udev.udev_monitor,
+    monitor: *udev.Monitor,
 
     pub fn init(state: *State) !Loop {
         // signals
@@ -38,17 +39,11 @@ pub const Loop = struct {
         const ifd = os.linux.inotify_init1(os.linux.IN.CLOEXEC);
 
         // udev
-        const udev = c.udev.udev_new();
-        if (udev == null) return error.UdevError;
-        const monitor = c.udev.udev_monitor_new_from_netlink(udev, "udev");
-        if (monitor == null) return error.UdevError;
-        _ = c.udev.udev_monitor_filter_add_match_subsystem_devtype(
-            monitor,
-            "backlight",
-            null,
-        );
-        _ = c.udev.udev_monitor_enable_receiving(monitor);
-        const ufd = c.udev.udev_monitor_get_fd(monitor);
+        const context = try udev.Udev.new();
+        const monitor = try udev.Monitor.newFromNetlink(context, "udev");
+        try monitor.filterAddMatchSubsystemDevType("backlight", null);
+        try monitor.enableReceiving();
+        const ufd = try monitor.getFd();
 
         return Loop{
             .state = state,
@@ -79,7 +74,7 @@ pub const Loop = struct {
                     .revents = 0,
                 },
             },
-            .monitor= monitor.?,
+            .monitor = monitor,
         };
     }
 
@@ -134,7 +129,7 @@ pub const Loop = struct {
 
             // udev
             if (self.fds[4].revents & os.POLL.IN != 0) {
-                _ = c.udev.udev_monitor_receive_device(self.monitor);
+                _ = try self.monitor.receiveDevice();
                 self.renderAllSurfaces(render.renderModules);
             }
         }
