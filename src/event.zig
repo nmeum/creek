@@ -116,7 +116,16 @@ pub const Loop = struct {
             if (self.fds[2].revents & os.POLL.IN != 0) {
                 var expirations = mem.zeroes([8]u8);
                 _ = try os.read(tfd, &expirations);
-                self.renderAllSurfaces(render.renderClock);
+
+                for (self.state.wayland.outputs.items) |output| {
+                    if (output.surface) |surface| {
+                        if (surface.configured) {
+                            render.renderClock(surface) catch continue;
+                            surface.clockSurface.commit();
+                            surface.backgroundSurface.commit();
+                        }
+                    }
+                }
             }
 
             // inotify
@@ -124,24 +133,30 @@ pub const Loop = struct {
                 const ifd = self.fds[3].fd;
                 var event = mem.zeroes(os.linux.inotify_event);
                 _ = try os.read(ifd, mem.asBytes(&event));
-                self.renderAllSurfaces(render.renderModules);
+
+                for (self.state.wayland.outputs.items) |output| {
+                    if (output.surface) |surface| {
+                        if (surface.configured) {
+                            render.renderModules(surface) catch continue;
+                            surface.modulesSurface.commit();
+                            surface.backgroundSurface.commit();
+                        }
+                    }
+                }
             }
 
             // udev
             if (self.fds[4].revents & os.POLL.IN != 0) {
                 _ = try self.monitor.receiveDevice();
-                self.renderAllSurfaces(render.renderModules);
-            }
-        }
-    }
 
-    fn renderAllSurfaces(self: *Loop, renderFn: render.RenderFn) void {
-        for (self.state.wayland.outputs.items) |output| {
-            if (output.surface) |surface| {
-                if (surface.configured) {
-                    renderFn(surface) catch continue;
-                    surface.modulesSurface.commit();
-                    surface.backgroundSurface.commit();
+                for (self.state.wayland.outputs.items) |output| {
+                    if (output.surface) |surface| {
+                        if (surface.configured) {
+                            render.renderModules(surface) catch continue;
+                            surface.modulesSurface.commit();
+                            surface.backgroundSurface.commit();
+                        }
+                    }
                 }
             }
         }
