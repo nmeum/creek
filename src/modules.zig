@@ -31,36 +31,29 @@ pub const Module = struct {
 
 pub const Battery = struct {
     state: *State,
-    path: []const u8,
-    watch: i32,
+    context: *udev.Udev,
+    devices: DeviceList,
 
-    pub const Data = struct {
-        value: u8,
-        icon: []const u8,
+    const Device = struct {
+        name: []const u8,
+        voltage: u64,
+        charge: u64,
+        charge_full: u64,
+        status: []const u8,
     };
+    const DeviceList = std.ArrayList(Device);
 
     pub fn init(state: *State) !Battery {
-        const path = try fs.path.join(
-            state.allocator,
-            &.{ "/sys/class/power_supply", state.config.batteryDev },
-        );
+        const context = try udev.Udev.new();
 
-        const uevent_path = try fs.path.joinZ(
-            state.allocator,
-            &.{ path, "uevent" },
-        );
-        defer state.allocator.free(uevent_path);
-
-        const watch = os.linux.inotify_add_watch(
-            state.loop.fds[3].fd,
-            uevent_path,
-            os.linux.IN.ACCESS,
-        );
+        var devices = DeviceList.init(state.allocator);
+        try updateDevices(state.allocator, context, &devices);
+        if (devices.items.len == 0) return error.NoDevicesFound;
 
         return Battery{
             .state = state,
-            .path = path,
-            .watch = @intCast(i32, watch),
+            .context= context,
+            .devices = devices,
         };
     }
 
@@ -71,59 +64,73 @@ pub const Battery = struct {
     pub fn print(self_opaque: *anyopaque, writer: StringWriter) !void {
         const self = Module.cast(Battery)(self_opaque);
 
-        const data = try self.readData();
-        try fmt.format(writer, "{s}   {d}%", .{ data.icon, data.value });
-    }
+        try updateDevices(self.state.allocator, self.context, &self.devices);
+        const device = self.devices.items[0];
 
-    fn readData(self: *const Battery) !Data {
-        const voltage = try self.readInt("voltage_now");
-        const charge = try self.readInt("charge_now");
-        const charge_full = try self.readInt("charge_full");
-
-        const energy = @as(u64, charge) * @as(u64, voltage) / 1000000;
-        const energy_full = @as(u64, charge_full) * @as(u64, voltage) / 1000000;
-
+        const energy = device.charge * device.voltage / 1000000;
+        const energy_full = device.charge_full * device.voltage / 1000000;
         var capacity = @intToFloat(f64, energy) * 100.0;
         capacity /= @intToFloat(f64, energy_full);
 
-        const status = try self.readValue("status");
-
         var icon: []const u8 = "❓";
-        if (mem.eql(u8, status, "Discharging")) {
+        if (mem.eql(u8, device.status, "Discharging")) {
             icon = "🔋";
-        } else if (mem.eql(u8, status, "Charging")) {
+        } else if (mem.eql(u8, device.status, "Charging")) {
             icon = "🔌";
-        } else if (mem.eql(u8, status, "Full")) {
+        } else if (mem.eql(u8, device.status, "Full")) {
             icon = "⚡";
         }
 
-        return Data{
-            .value = @floatToInt(u8, @round(capacity)),
-            .icon = icon,
+        const value = @floatToInt(u8, @round(capacity));
+        try fmt.format(writer, "{s}   {d}%", .{ icon, value });
+    }
+
+    fn updateDevices(
+        allocator: mem.Allocator,
+        context: *udev.Udev,
+        devices: *DeviceList,
+    ) !void {
+        const enumerate = try udev.Enumerate.new(context);
+        try enumerate.addMatchSubsystem("power_supply");
+        try enumerate.addMatchSysattr("type", "Battery");
+        try enumerate.scanDevices();
+        const entries = enumerate.getListEntry();
+
+        var maybe_entry = entries;
+        while (maybe_entry) |entry| {
+            const path = entry.getName();
+            const device = try udev.Device.newFromSyspath(context, path);
+            try updateOrAppend(allocator, devices, device);
+            maybe_entry = entry.getNext();
+        }
+    }
+
+    fn updateOrAppend(
+        allocator: mem.Allocator,
+        devices: *DeviceList,
+        dev: *udev.Device,
+    ) !void {
+        const voltage = try dev.getSysattrValue("voltage_now");
+        const charge = try dev.getSysattrValue("charge_now");
+        const charge_full = try dev.getSysattrValue("charge_full");
+        const status = try dev.getSysattrValue("status");
+        const name = try dev.getSysname();
+
+        const device = blk: {
+            for (devices.items) |*device| {
+                if (mem.eql(u8, device.name, name)) {
+                    break :blk device;
+                }
+            } else {
+                const device = try devices.addOne();
+                device.name = try allocator.dupe(u8, name);
+                break :blk device;
+            }
         };
-    }
-
-    fn readInt(self: *const Battery, filename: []const u8) !u32 {
-        const value = try self.readValue(filename);
-        defer self.state.allocator.free(value);
-
-        return fmt.parseInt(u32, value, 10);
-    }
-
-    fn readValue(self: *const Battery, filename: []const u8) ![]u8 {
-        const state = self.state;
-
-        const path = try fs.path.join(
-            state.allocator,
-            &.{ self.path, filename },
-        );
-        defer state.allocator.free(path);
-
-        const file = try fs.openFileAbsolute(path, .{});
-        defer file.close();
-
-        var str = try file.readToEndAlloc(state.allocator, 128);
-        return state.allocator.resize(str, str.len - 1).?;
+        device.voltage = try fmt.parseInt(u64, voltage, 10);
+        device.charge = try fmt.parseInt(u64, charge, 10);
+        device.charge_full = try fmt.parseInt(u64, charge_full, 10);
+        device.status = try allocator.dupe(u8, status);
     }
 };
 

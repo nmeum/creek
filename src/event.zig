@@ -6,13 +6,12 @@ const ArrayList = std.ArrayList;
 const wl = @import("wayland").client.wl;
 const udev = @import("udev");
 
-const c = @import("c.zig");
 const render = @import("render.zig");
 const State = @import("main.zig").State;
 
 pub const Loop = struct {
     state: *State,
-    fds: [5]os.pollfd,
+    fds: [4]os.pollfd,
     monitor: *udev.Monitor,
 
     pub fn init(state: *State) !Loop {
@@ -35,13 +34,11 @@ pub const Loop = struct {
         };
         _ = os.linux.timerfd_settime(@intCast(i32, tfd), 0, &interval, null);
 
-        // inotify
-        const ifd = os.linux.inotify_init1(os.linux.IN.CLOEXEC);
-
         // udev
         const context = try udev.Udev.new();
         const monitor = try udev.Monitor.newFromNetlink(context, "udev");
         try monitor.filterAddMatchSubsystemDevType("backlight", null);
+        try monitor.filterAddMatchSubsystemDevType("power_supply", null);
         try monitor.enableReceiving();
         const ufd = try monitor.getFd();
 
@@ -64,11 +61,6 @@ pub const Loop = struct {
                     .revents = 0,
                 },
                 .{
-                    .fd = @intCast(os.fd_t, ifd),
-                    .events = os.POLL.IN,
-                    .revents = 0,
-                },
-                .{
                     .fd = @intCast(os.fd_t, ufd),
                     .events = os.POLL.IN,
                     .revents = 0,
@@ -80,7 +72,6 @@ pub const Loop = struct {
 
     pub fn run(self: *Loop) !void {
         const display = self.state.wayland.display;
-        const tfd = self.fds[2].fd;
 
         while (true) {
             while (true) {
@@ -114,6 +105,7 @@ pub const Loop = struct {
 
             // timer
             if (self.fds[2].revents & os.POLL.IN != 0) {
+                const tfd = self.fds[2].fd;
                 var expirations = mem.zeroes([8]u8);
                 _ = try os.read(tfd, &expirations);
 
@@ -128,25 +120,8 @@ pub const Loop = struct {
                 }
             }
 
-            // inotify
-            if (self.fds[3].revents & os.POLL.IN != 0) {
-                const ifd = self.fds[3].fd;
-                var event = mem.zeroes(os.linux.inotify_event);
-                _ = try os.read(ifd, mem.asBytes(&event));
-
-                for (self.state.wayland.outputs.items) |output| {
-                    if (output.surface) |surface| {
-                        if (surface.configured) {
-                            render.renderModules(surface) catch continue;
-                            surface.modulesSurface.commit();
-                            surface.backgroundSurface.commit();
-                        }
-                    }
-                }
-            }
-
             // udev
-            if (self.fds[4].revents & os.POLL.IN != 0) {
+            if (self.fds[3].revents & os.POLL.IN != 0) {
                 _ = try self.monitor.receiveDevice();
 
                 for (self.state.wayland.outputs.items) |output| {
