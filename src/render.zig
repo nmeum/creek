@@ -86,7 +86,7 @@ pub fn renderClock(surface: *Surface) !void {
     const utf8 = try std.unicode.Utf8View.init(str);
     var utf8_iter = utf8.iterator();
 
-    var runes = try state.allocator.alloc(c_int, str.len);
+    var runes = try state.allocator.alloc(u32, str.len);
     defer state.allocator.free(runes);
 
     var i: usize = 0;
@@ -95,7 +95,11 @@ pub fn renderClock(surface: *Surface) !void {
     }
     runes = state.allocator.resize(runes, i).?;
 
-    const run = try fcft.TextRun.rasterize(state.config.font, runes, .default);
+    const run = try fcft.TextRun.rasterizeUtf32(
+        state.config.font,
+        runes,
+        .default,
+    );
     defer run.destroy();
 
     i = 0;
@@ -147,7 +151,7 @@ pub fn renderModules(surface: *Surface) !void {
     const utf8 = try std.unicode.Utf8View.init(string.items);
     var utf8_iter = utf8.iterator();
 
-    var runes = try state.allocator.alloc(c_int, string.items.len);
+    var runes = try state.allocator.alloc(u32, string.items.len);
     defer state.allocator.free(runes);
 
     var i: usize = 0;
@@ -164,7 +168,11 @@ pub fn renderModules(surface: *Surface) !void {
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
 
     // compute offsets
-    const run = try fcft.TextRun.rasterize(state.config.font, runes, .default);
+    const run = try fcft.TextRun.rasterizeUtf32(
+        state.config.font,
+        runes,
+        .default,
+    );
     defer run.destroy();
 
     i = 0;
@@ -233,7 +241,7 @@ fn renderTag(
     };
     const font = state.config.font;
     var char = pixman.Image.createSolidFill(glyph_color).?;
-    const glyph = try fcft.Glyph.rasterize(font, tag.label, .default);
+    const glyph = try fcft.Glyph.rasterizeUtf32(font, tag.label, .default);
     const x = offset + @divFloor(size - glyph.width, 2);
     const y = @divFloor(size - glyph.height, 2);
     pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);

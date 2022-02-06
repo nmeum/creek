@@ -1,5 +1,7 @@
 const std = @import("std");
 
+const fcft = @import("fcft");
+
 const Config = @import("config.zig").Config;
 const Loop = @import("event.zig").Loop;
 const modules = @import("modules.zig");
@@ -19,6 +21,8 @@ pub const State = struct {
 pub fn main() anyerror!void {
     var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
     defer arena.deinit();
+
+    fcft.init(.auto, false, .info);
 
     std.log.info("initialization", .{});
     var state: State = undefined;
