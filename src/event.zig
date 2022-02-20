@@ -23,14 +23,17 @@ pub const Loop = struct {
         _ = os.linux.sigprocmask(os.linux.SIG.BLOCK, &mask, null);
         const sfd = os.linux.signalfd(-1, &mask, os.linux.SFD.NONBLOCK);
 
+        // wayland
+        const wfd = state.wayland.display.getFd();
+
         // timer
         const tfd = os.linux.timerfd_create(
             os.CLOCK.MONOTONIC,
             os.linux.TFD.CLOEXEC,
         );
         const interval: os.linux.itimerspec = .{
-            .it_interval = .{ .tv_sec = 1, .tv_nsec = 0 },
-            .it_value = .{ .tv_sec = 1, .tv_nsec = 0 },
+            .it_interval = .{ .tv_sec = 10, .tv_nsec = 0 },
+            .it_value = .{ .tv_sec = 10, .tv_nsec = 0 },
         };
         _ = os.linux.timerfd_settime(@intCast(i32, tfd), 0, &interval, null);
 
@@ -42,30 +45,21 @@ pub const Loop = struct {
         try monitor.enableReceiving();
         const ufd = try monitor.getFd();
 
+        // poll fds
+        const fds: [4]os.fd_t = .{
+            @intCast(os.fd_t, sfd),
+            @intCast(os.fd_t, wfd),
+            @intCast(os.fd_t, tfd),
+            @intCast(os.fd_t, ufd),
+        };
+        var pfds: [4]os.pollfd = undefined;
+        for (fds) |fd, i| {
+            pfds[i] = .{ .fd = fd, .events = os.POLL.IN, .revents = 0 };
+        }
+
         return Loop{
             .state = state,
-            .fds = .{
-                .{
-                    .fd = @intCast(os.fd_t, sfd),
-                    .events = os.POLL.IN,
-                    .revents = 0,
-                },
-                .{
-                    .fd = state.wayland.display.getFd(),
-                    .events = os.POLL.IN,
-                    .revents = 0,
-                },
-                .{
-                    .fd = @intCast(os.fd_t, tfd),
-                    .events = os.POLL.IN,
-                    .revents = 0,
-                },
-                .{
-                    .fd = @intCast(os.fd_t, ufd),
-                    .events = os.POLL.IN,
-                    .revents = 0,
-                },
-            },
+            .fds = pfds,
             .monitor = monitor,
         };
     }
@@ -113,7 +107,9 @@ pub const Loop = struct {
                     if (output.surface) |surface| {
                         if (surface.configured) {
                             render.renderClock(surface) catch continue;
+                            render.renderModules(surface) catch continue;
                             surface.clockSurface.commit();
+                            surface.modulesSurface.commit();
                             surface.backgroundSurface.commit();
                         }
                     }

@@ -24,23 +24,23 @@ pub fn main() anyerror!void {
 
     fcft.init(.auto, false, .info);
 
-    std.log.info("initialization", .{});
+    // initialization
     var state: State = undefined;
     state.allocator = arena.allocator();
     state.config = try Config.init();
     state.wayland = try Wayland.init(&state);
     state.loop = try Loop.init(&state);
 
-    std.log.info("modules initialization", .{});
+    // modules
     state.modules = std.ArrayList(modules.Module).init(state.allocator);
     state.backlight = try modules.Backlight.init(&state);
     try state.modules.append(state.backlight.module());
     state.battery = try modules.Battery.init(&state);
     try state.modules.append(state.battery.module());
 
-    std.log.info("wayland globals registration", .{});
+    // wayland
     try state.wayland.registerGlobals();
 
-    std.log.info("event loop start", .{});
+    // event loop
     try state.loop.run();
 }
