@@ -8,8 +8,6 @@ pub const Config = struct {
     border: u15,
     font: *fcft.Font,
     clockFormat: [*:0]const u8,
-    batteryDev: []const u8,
-    backlightDev: []const u8,
 
     pub fn init() !Config {
         var font_names = [_][*:0]const u8{"monospace:size=14"};
@@ -31,8 +29,6 @@ pub const Config = struct {
             .border = 2,
             .font = try fcft.Font.fromName(&font_names, null),
             .clockFormat = "%d %b %Y - %R",
-            .batteryDev = "BAT1",
-            .backlightDev = "intel_backlight",
         };
     }
 };

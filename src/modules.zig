@@ -36,10 +36,8 @@ pub const Battery = struct {
 
     const Device = struct {
         name: []const u8,
-        voltage: u64,
-        charge: u64,
-        charge_full: u64,
         status: []const u8,
+        capacity: u8,
     };
     const DeviceList = std.ArrayList(Device);
 
@@ -67,11 +65,6 @@ pub const Battery = struct {
         try updateDevices(self.state.allocator, self.context, &self.devices);
         const device = self.devices.items[0];
 
-        const energy = device.charge * device.voltage / 1000000;
-        const energy_full = device.charge_full * device.voltage / 1000000;
-        var capacity = @intToFloat(f64, energy) * 100.0;
-        capacity /= @intToFloat(f64, energy_full);
-
         var icon: []const u8 = "❓";
         if (mem.eql(u8, device.status, "Discharging")) {
             icon = "🔋";
@@ -81,8 +74,7 @@ pub const Battery = struct {
             icon = "⚡";
         }
 
-        const value = @floatToInt(u8, @round(capacity));
-        try fmt.format(writer, "{s}   {d}%", .{ icon, value });
+        try fmt.format(writer, "{s}   {d}%", .{ icon, device.capacity });
     }
 
     fn updateDevices(
@@ -97,11 +89,10 @@ pub const Battery = struct {
         const entries = enumerate.getListEntry();
 
         var maybe_entry = entries;
-        while (maybe_entry) |entry| {
+        while (maybe_entry) |entry| : (maybe_entry = entry.getNext()) {
             const path = entry.getName();
             const device = try udev.Device.newFromSyspath(context, path);
             try updateOrAppend(allocator, devices, device);
-            maybe_entry = entry.getNext();
         }
     }
 
@@ -110,11 +101,9 @@ pub const Battery = struct {
         devices: *DeviceList,
         dev: *udev.Device,
     ) !void {
-        const voltage = try dev.getSysattrValue("voltage_now");
-        const charge = try dev.getSysattrValue("charge_now");
-        const charge_full = try dev.getSysattrValue("charge_full");
-        const status = try dev.getSysattrValue("status");
-        const name = try dev.getSysname();
+        const name = dev.getSysname() catch return;
+        const status = dev.getSysattrValue("status") catch return;
+        const capacity = getCapacity(dev) catch return;
 
         const device = blk: {
             for (devices.items) |*device| {
@@ -127,10 +116,42 @@ pub const Battery = struct {
                 break :blk device;
             }
         };
-        device.voltage = try fmt.parseInt(u64, voltage, 10);
-        device.charge = try fmt.parseInt(u64, charge, 10);
-        device.charge_full = try fmt.parseInt(u64, charge_full, 10);
+
         device.status = try allocator.dupe(u8, status);
+        device.capacity = capacity;
+    }
+
+    fn getCapacity(dev: *udev.Device) !u8 {
+        const capacity_str = dev.getSysattrValue("capacity") catch {
+            return computeCapacityFromCharge(dev) catch {
+                return computeCapacityFromEnergy(dev);
+            };
+        };
+
+        const capacity = try fmt.parseInt(u8, capacity_str, 10);
+        return capacity;
+    }
+
+    fn computeCapacityFromEnergy(dev: *udev.Device) !u8 {
+        const energy_str = try dev.getSysattrValue("energy_now");
+        const energy_full_str = try dev.getSysattrValue("energy_full");
+
+        const energy = try fmt.parseFloat(f64, energy_str);
+        const energy_full = try fmt.parseFloat(f64, energy_full_str);
+
+        const capacity = energy * 100.0 / energy_full;
+        return @floatToInt(u8, @round(capacity));
+    }
+
+    fn computeCapacityFromCharge(dev: *udev.Device) !u8 {
+        const charge_str = try dev.getSysattrValue("charge_now");
+        const charge_full_str = try dev.getSysattrValue("charge_full");
+
+        const charge = try fmt.parseFloat(f64, charge_str);
+        const charge_full = try fmt.parseFloat(f64, charge_full_str);
+
+        const capacity = charge * 100.0 / charge_full;
+        return @floatToInt(u8, @round(capacity));
     }
 };
 
@@ -187,11 +208,10 @@ pub const Backlight = struct {
         const entries = enumerate.getListEntry();
 
         var maybe_entry = entries;
-        while (maybe_entry) |entry| {
+        while (maybe_entry) |entry| : (maybe_entry = entry.getNext()) {
             const path = entry.getName();
             const device = try udev.Device.newFromSyspath(context, path);
             try updateOrAppend(allocator, devices, device);
-            maybe_entry = entry.getNext();
         }
     }
 
