@@ -1,46 +1,57 @@
 const std = @import("std");
+const heap = std.heap;
+const mem = std.mem;
 
 const fcft = @import("fcft");
 
 const Config = @import("config.zig").Config;
-const Loop = @import("event.zig").Loop;
+const Loop = @import("Loop.zig");
 const modules = @import("modules.zig");
 const Wayland = @import("wayland.zig").Wayland;
 
 pub const State = struct {
-    allocator: std.mem.Allocator,
+    gpa: mem.Allocator,
     config: Config,
     wayland: Wayland,
     loop: Loop,
 
-    battery: modules.Battery,
+    alsa: modules.Alsa,
     backlight: modules.Backlight,
+    battery: modules.Battery,
     modules: std.ArrayList(modules.Module),
 };
 
 pub fn main() anyerror!void {
-    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-    defer arena.deinit();
+    var gpa: heap.GeneralPurposeAllocator(.{}) = .{};
+    defer _ = gpa.deinit();
 
     fcft.init(.auto, false, .info);
 
     // initialization
     var state: State = undefined;
-    state.allocator = arena.allocator();
+    state.gpa = gpa.allocator();
     state.config = try Config.init();
     state.wayland = try Wayland.init(&state);
+    defer state.wayland.deinit();
     state.loop = try Loop.init(&state);
 
     // modules
-    state.modules = std.ArrayList(modules.Module).init(state.allocator);
-    state.backlight = try modules.Backlight.init(&state);
-    try state.modules.append(state.backlight.module());
-    state.battery = try modules.Battery.init(&state);
-    try state.modules.append(state.battery.module());
+    state.modules = std.ArrayList(modules.Module).init(state.gpa);
+    defer state.modules.deinit();
 
-    // wayland
-    try state.wayland.registerGlobals();
+    state.alsa = try modules.Alsa.init(&state);
+    state.backlight = try modules.Backlight.init(&state);
+    defer state.backlight.deinit();
+    state.battery = try modules.Battery.init(&state);
+    defer state.battery.deinit();
+
+    try state.modules.appendSlice(&.{
+        try state.backlight.module(),
+        state.battery.module(),
+        state.alsa.module(),
+    });
 
     // event loop
+    try state.wayland.registerGlobals();
     try state.loop.run();
 }

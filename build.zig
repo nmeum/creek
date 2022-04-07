@@ -7,11 +7,18 @@ pub fn build(b: *std.build.Builder) void {
     const target = b.standardTargetOptions(.{});
     const mode = b.standardReleaseOptions();
 
+    const exe = b.addExecutable("levee", "src/main.zig");
+    exe.setTarget(target);
+    exe.setBuildMode(mode);
+
     const scanner = ScanProtocolsStep.create(b);
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addProtocolPath("protocol/wlr-layer-shell-unstable-v1.xml");
     scanner.addProtocolPath("protocol/river-status-unstable-v1.xml");
     scanner.addProtocolPath("protocol/river-control-unstable-v1.xml");
+
+    exe.step.dependOn(&scanner.step);
+    scanner.addCSource(exe);
 
     const wayland = Pkg{
         .name = "wayland",
@@ -31,25 +38,17 @@ pub fn build(b: *std.build.Builder) void {
         .path = .{ .path = "deps/zig-udev/udev.zig" },
     };
 
-    const exe = b.addExecutable("levee", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
+    exe.addPackage(fcft);
+    exe.addPackage(pixman);
+    exe.addPackage(udev);
+    exe.addPackage(wayland);
 
     exe.linkLibC();
-
-    exe.addPackage(wayland);
-    exe.linkSystemLibrary("wayland-client");
-    exe.step.dependOn(&scanner.step);
-    scanner.addCSource(exe);
-
-    exe.addPackage(pixman);
-    exe.linkSystemLibrary("pixman-1");
-
-    exe.addPackage(fcft);
+    exe.linkSystemLibrary("alsa");
     exe.linkSystemLibrary("fcft");
-
-    exe.addPackage(udev);
     exe.linkSystemLibrary("libudev");
+    exe.linkSystemLibrary("pixman-1");
+    exe.linkSystemLibrary("wayland-client");
 
     exe.install();
 
@@ -59,13 +58,6 @@ pub fn build(b: *std.build.Builder) void {
         run_cmd.addArgs(args);
     }
 
-    const run_step = b.step("run", "Run the app");
+    const run_step = b.step("run", "Run levee");
     run_step.dependOn(&run_cmd.step);
-
-    const exe_tests = b.addTest("src/main.zig");
-    exe_tests.setTarget(target);
-    exe_tests.setBuildMode(mode);
-
-    const test_step = b.step("test", "Run unit tests");
-    test_step.dependOn(&exe_tests.step);
 }

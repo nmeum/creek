@@ -3,23 +3,22 @@ const mem = std.mem;
 
 const fcft = @import("fcft");
 const pixman = @import("pixman");
+const time = @cImport(@cInclude("time.h"));
 
-const Buffer = @import("shm.zig").Buffer;
-const c = @import("c.zig");
+const Buffer = @import("Buffer.zig");
 const State = @import("main.zig").State;
-const Surface = @import("wayland.zig").Surface;
-const Tag = @import("tags.zig").Tag;
-const Tags = @import("tags.zig").Tags;
+const Surface = @import("Surface.zig");
+const Tag = @import("Tags.zig").Tag;
 
 pub const RenderFn = fn (*Surface) anyerror!void;
 
 pub fn renderBackground(surface: *Surface) !void {
-    const state = surface.output.state;
+    const state = surface.monitor.state;
     const wlSurface = surface.backgroundSurface;
 
     const buffer = try Buffer.nextBuffer(
         &surface.backgroundBuffers,
-        state.wayland.shm,
+        state.wayland.globals.shm,
         surface.width,
         surface.height,
     );
@@ -31,19 +30,19 @@ pub fn renderBackground(surface: *Surface) !void {
     const color = &state.config.backgroundColor;
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, color, 1, &area);
 
-    wlSurface.setBufferScale(surface.output.scale);
+    wlSurface.setBufferScale(surface.monitor.scale);
     wlSurface.damageBuffer(0, 0, surface.width, surface.height);
     wlSurface.attach(buffer.buffer, 0, 0);
 }
 
 pub fn renderTags(surface: *Surface) !void {
-    const state = surface.output.state;
+    const state = surface.monitor.state;
     const wlSurface = surface.tagsSurface;
-    const tags = surface.output.tags.tags;
+    const tags = surface.monitor.tags.tags;
 
     const buffer = try Buffer.nextBuffer(
         &surface.tagsBuffers,
-        surface.output.state.wayland.shm,
+        surface.monitor.state.wayland.globals.shm,
         surface.width,
         surface.height,
     );
@@ -54,18 +53,18 @@ pub fn renderTags(surface: *Surface) !void {
         try renderTag(buffer.pix.?, tag, surface.height, offset, state);
     }
 
-    wlSurface.setBufferScale(surface.output.scale);
+    wlSurface.setBufferScale(surface.monitor.scale);
     wlSurface.damageBuffer(0, 0, surface.width, surface.height);
     wlSurface.attach(buffer.buffer, 0, 0);
 }
 
 pub fn renderClock(surface: *Surface) !void {
-    const state = surface.output.state;
+    const state = surface.monitor.state;
     const wlSurface = surface.clockSurface;
 
     const buffer = try Buffer.nextBuffer(
         &surface.clockBuffers,
-        surface.output.state.wayland.shm,
+        surface.monitor.state.wayland.globals.shm,
         surface.width,
         surface.height,
     );
@@ -80,20 +79,20 @@ pub fn renderClock(surface: *Surface) !void {
 
     // get formatted datetime
     const str = try formatDatetime(state);
-    defer state.allocator.free(str);
+    defer state.gpa.free(str);
 
     // ut8 encoding
     const utf8 = try std.unicode.Utf8View.init(str);
     var utf8_iter = utf8.iterator();
 
-    var runes = try state.allocator.alloc(u32, str.len);
-    defer state.allocator.free(runes);
+    var runes = try state.gpa.alloc(u32, str.len);
+    defer state.gpa.free(runes);
 
     var i: usize = 0;
     while (utf8_iter.nextCodepoint()) |rune| : (i += 1) {
         runes[i] = rune;
     }
-    runes = state.allocator.resize(runes, i).?;
+    runes = state.gpa.resize(runes, i).?;
 
     const run = try fcft.TextRun.rasterizeUtf32(
         state.config.font,
@@ -122,25 +121,27 @@ pub fn renderClock(surface: *Surface) !void {
         x_offset += glyph.advance.x;
     }
 
-    wlSurface.setBufferScale(surface.output.scale);
+    wlSurface.setBufferScale(surface.monitor.scale);
     wlSurface.damageBuffer(0, 0, surface.width, surface.height);
     wlSurface.attach(buffer.buffer, 0, 0);
 }
 
 pub fn renderModules(surface: *Surface) !void {
-    const state = surface.output.state;
+    const state = surface.monitor.state;
     const wlSurface = surface.modulesSurface;
 
     const buffer = try Buffer.nextBuffer(
         &surface.modulesBuffers,
-        surface.output.state.wayland.shm,
+        surface.monitor.state.wayland.globals.shm,
         surface.width,
         surface.height,
     );
     buffer.busy = true;
 
     // compose string
-    var string = std.ArrayList(u8).init(state.allocator);
+    var string = std.ArrayList(u8).init(state.gpa);
+    defer string.deinit();
+
     const writer = string.writer();
     for (state.modules.items) |*module| {
         try std.fmt.format(writer, " | ", .{});
@@ -151,14 +152,14 @@ pub fn renderModules(surface: *Surface) !void {
     const utf8 = try std.unicode.Utf8View.init(string.items);
     var utf8_iter = utf8.iterator();
 
-    var runes = try state.allocator.alloc(u32, string.items.len);
-    defer state.allocator.free(runes);
+    var runes = try state.gpa.alloc(u32, string.items.len);
+    defer state.gpa.free(runes);
 
     var i: usize = 0;
     while (utf8_iter.nextCodepoint()) |rune| : (i += 1) {
         runes[i] = rune;
     }
-    runes = state.allocator.resize(runes, i).?;
+    runes = state.gpa.resize(runes, i).?;
 
     // clear the buffer
     const bg_area = [_]pixman.Rectangle16{
@@ -196,7 +197,7 @@ pub fn renderModules(surface: *Surface) !void {
         x_offset += glyph.advance.x;
     }
 
-    wlSurface.setBufferScale(surface.output.scale);
+    wlSurface.setBufferScale(surface.monitor.scale);
     wlSurface.damageBuffer(0, 0, surface.width, surface.height);
     wlSurface.attach(buffer.buffer, 0, 0);
 }
@@ -248,14 +249,14 @@ fn renderTag(
 }
 
 fn formatDatetime(state: *State) ![]const u8 {
-    var buf = try state.allocator.alloc(u8, 256);
-    const now = c.time.time(null);
-    const local = c.time.localtime(&now);
-    const len = c.time.strftime(
+    var buf = try state.gpa.alloc(u8, 256);
+    const now = time.time(null);
+    const local = time.localtime(&now);
+    const len = time.strftime(
         buf.ptr,
         buf.len,
         state.config.clockFormat,
         local,
     );
-    return state.allocator.resize(buf, len).?;
+    return state.gpa.resize(buf, len).?;
 }

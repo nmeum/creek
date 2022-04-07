@@ -9,7 +9,6 @@ Some important things are not implemented yet:
 
 * configuration via cli flags
 * configuration via config file
-* volume information
 
 ## Build
 
