@@ -85,11 +85,11 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
 
     _ = self.monitor.receiveDevice() catch return;
     for (self.state.wayland.monitors.items) |monitor| {
-        if (monitor.surface) |surface| {
-            if (surface.configured) {
-                render.renderModules(surface) catch continue;
-                surface.modulesSurface.commit();
-                surface.backgroundSurface.commit();
+        if (monitor.bar) |bar| {
+            if (bar.configured) {
+                render.renderModules(bar) catch continue;
+                bar.modules.surface.commit();
+                bar.background.surface.commit();
             }
         }
     }

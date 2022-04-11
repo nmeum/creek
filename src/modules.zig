@@ -1,5 +1,4 @@
 const std = @import("std");
-const os = std.os;
 
 const Event = @import("Loop.zig").Event;
 

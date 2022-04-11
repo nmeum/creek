@@ -93,13 +93,13 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
     _ = os.read(self.timerFd, &expirations) catch return;
 
     for (self.state.wayland.monitors.items) |monitor| {
-        if (monitor.surface) |surface| {
-            if (surface.configured) {
-                render.renderClock(surface) catch continue;
-                render.renderModules(surface) catch continue;
-                surface.clockSurface.commit();
-                surface.modulesSurface.commit();
-                surface.backgroundSurface.commit();
+        if (monitor.bar) |bar| {
+            if (bar.configured) {
+                render.renderClock(bar) catch continue;
+                render.renderModules(bar) catch continue;
+                bar.clock.surface.commit();
+                bar.modules.surface.commit();
+                bar.background.surface.commit();
             }
         }
     }

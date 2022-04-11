@@ -1,13 +1,8 @@
 const std = @import("std");
-const fmt = std.fmt;
 const mem = std.mem;
 const os = std.os;
 
-const wl = @import("wayland").client.wl;
-
-const Module = @import("modules.zig").Module;
 const State = @import("main.zig").State;
-const utils = @import("utils.zig");
 const Loop = @This();
 
 state: *State,

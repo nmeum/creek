@@ -13,7 +13,7 @@ const Buffer = @import("Buffer.zig");
 const Event = @import("Loop.zig").Event;
 const render = @import("render.zig");
 const State = @import("main.zig").State;
-const Surface = @import("Surface.zig");
+const Bar = @import("Bar.zig");
 const Tags = @import("Tags.zig");
 const utils = @import("utils.zig");
 
@@ -141,7 +141,9 @@ pub const Wayland = struct {
         } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
             const global = try registry.bind(name, zwlr.LayerShellV1, 1);
             self.setGlobal(global);
-        } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
+        } else if (
+            strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0
+        ) {
             const global = try registry.bind(name, zriver.StatusManagerV1, 1);
             self.setGlobal(global);
         } else if (strcmp(iface, zriver.ControlV1.getInterface().name) == 0) {
@@ -166,18 +168,18 @@ pub const Wayland = struct {
         }
     }
 
-    pub fn findSurface(self: *Wayland, wlSurface: ?*wl.Surface) ?*Surface {
+    pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
         if (wlSurface == null) {
             return null;
         }
         for (self.monitors.items) |monitor| {
-            if (monitor.surface) |surface| {
-                if (surface.backgroundSurface == wlSurface or
-                    surface.tagsSurface == wlSurface or
-                    surface.clockSurface == wlSurface or
-                    surface.modulesSurface == wlSurface)
+            if (monitor.bar) |bar| {
+                if (bar.background.surface == wlSurface or
+                    bar.tags.surface == wlSurface or
+                    bar.clock.surface == wlSurface or
+                    bar.modules.surface == wlSurface)
                 {
-                    return surface;
+                    return bar;
                 }
             }
         }
@@ -191,7 +193,7 @@ pub const Monitor = struct {
     globalName: u32,
     scale: i32,
 
-    surface: ?*Surface,
+    bar: ?*Bar,
     tags: *Tags,
 
     pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Monitor {
@@ -201,7 +203,7 @@ pub const Monitor = struct {
         self.globalName = name;
         self.scale = 1;
 
-        self.surface = null;
+        self.bar = null;
         self.tags = try Tags.create(state, self);
 
         self.output.setListener(*Monitor, listener, self);
@@ -209,8 +211,8 @@ pub const Monitor = struct {
     }
 
     pub fn destroy(self: *Monitor) void {
-        if (self.surface) |surface| {
-            surface.destroy();
+        if (self.bar) |bar| {
+            bar.destroy();
         }
         self.tags.destroy();
         self.state.gpa.destroy(self);
@@ -226,8 +228,8 @@ pub const Monitor = struct {
             .name => {},
             .description => {},
             .done => {
-                if (monitor.surface) |_| {} else {
-                    monitor.surface = Surface.create(monitor) catch return;
+                if (monitor.bar) |_| {} else {
+                    monitor.bar = Bar.create(monitor) catch return;
                 }
             },
         }
@@ -243,7 +245,7 @@ pub const Input = struct {
         wlPointer: ?*wl.Pointer,
         x: i32,
         y: i32,
-        surface: ?*Surface,
+        bar: ?*Bar,
     },
 
     pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Input {
@@ -253,7 +255,7 @@ pub const Input = struct {
         self.globalName = name;
 
         self.pointer.wlPointer = null;
-        self.pointer.surface = null;
+        self.pointer.bar = null;
 
         self.seat.setListener(*Input, listener, self);
         return self;
@@ -296,11 +298,11 @@ pub const Input = struct {
             .enter => |data| {
                 input.pointer.x = data.surface_x.toInt();
                 input.pointer.y = data.surface_y.toInt();
-                const surface = input.state.wayland.findSurface(data.surface);
-                input.pointer.surface = surface;
+                const bar = input.state.wayland.findBar(data.surface);
+                input.pointer.bar = bar;
             },
             .leave => |_| {
-                input.pointer.surface = null;
+                input.pointer.bar = null;
             },
             .motion => |data| {
                 input.pointer.x = data.surface_x.toInt();
@@ -308,12 +310,12 @@ pub const Input = struct {
             },
             .button => |data| {
                 if (data.state != .pressed) return;
-                if (input.pointer.surface) |surface| {
-                    if (!surface.configured) return;
+                if (input.pointer.bar) |bar| {
+                    if (!bar.configured) return;
 
                     const x = @intCast(u32, input.pointer.x);
-                    if (x < surface.height * 9) {
-                        surface.monitor.tags.handleClick(x, input) catch return;
+                    if (x < bar.height * 9) {
+                        bar.monitor.tags.handleClick(x, input) catch return;
                     }
                 }
             },

@@ -7,136 +7,114 @@ const time = @cImport(@cInclude("time.h"));
 
 const Buffer = @import("Buffer.zig");
 const State = @import("main.zig").State;
-const Surface = @import("Surface.zig");
+const Bar = @import("Bar.zig");
 const Tag = @import("Tags.zig").Tag;
+const utils = @import("utils.zig");
 
-pub const RenderFn = fn (*Surface) anyerror!void;
+pub const RenderFn = fn (*Bar) anyerror!void;
 
-pub fn renderBackground(surface: *Surface) !void {
-    const state = surface.monitor.state;
-    const wlSurface = surface.backgroundSurface;
+pub fn renderBackground(bar: *Bar) !void {
+    const state = bar.monitor.state;
+    const wlSurface = bar.background.surface;
 
-    const buffer = try Buffer.nextBuffer(
-        &surface.backgroundBuffers,
-        state.wayland.globals.shm,
-        surface.width,
-        surface.height,
-    );
-    buffer.busy = true;
+    const buffer = &bar.background.buffer;
+    if (buffer.width == bar.width and buffer.height == bar.height) return;
+    try buffer.init(state.wayland.globals.shm, bar.width, bar.height);
 
     const area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = surface.width, .height = surface.height },
+        .{ .x = 0, .y = 0, .width = bar.width, .height = bar.height },
     };
     const color = &state.config.backgroundColor;
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, color, 1, &area);
 
-    wlSurface.setBufferScale(surface.monitor.scale);
-    wlSurface.damageBuffer(0, 0, surface.width, surface.height);
+    wlSurface.setBufferScale(bar.monitor.scale);
+    wlSurface.damageBuffer(0, 0, bar.width, bar.height);
     wlSurface.attach(buffer.buffer, 0, 0);
 }
 
-pub fn renderTags(surface: *Surface) !void {
-    const state = surface.monitor.state;
-    const wlSurface = surface.tagsSurface;
-    const tags = surface.monitor.tags.tags;
+pub fn renderTags(bar: *Bar) !void {
+    const state = bar.monitor.state;
+    const surface = bar.tags.surface;
+    const tags = bar.monitor.tags.tags;
 
+    const width = bar.height * 9;
     const buffer = try Buffer.nextBuffer(
-        &surface.tagsBuffers,
-        surface.monitor.state.wayland.globals.shm,
-        surface.width,
-        surface.height,
+        &bar.tags.buffers,
+        bar.monitor.state.wayland.globals.shm,
+        width,
+        bar.height,
     );
     buffer.busy = true;
 
     for (tags) |*tag, i| {
-        const offset = @intCast(i16, surface.height * i);
-        try renderTag(buffer.pix.?, tag, surface.height, offset, state);
+        const offset = @intCast(i16, bar.height * i);
+        try renderTag(buffer.pix.?, tag, bar.height, offset, state);
     }
 
-    wlSurface.setBufferScale(surface.monitor.scale);
-    wlSurface.damageBuffer(0, 0, surface.width, surface.height);
-    wlSurface.attach(buffer.buffer, 0, 0);
+    surface.setBufferScale(bar.monitor.scale);
+    surface.damageBuffer(0, 0, width, bar.height);
+    surface.attach(buffer.buffer, 0, 0);
 }
 
-pub fn renderClock(surface: *Surface) !void {
-    const state = surface.monitor.state;
-    const wlSurface = surface.clockSurface;
+pub fn renderClock(bar: *Bar) !void {
+    const state = bar.monitor.state;
+    const surface = bar.clock.surface;
+    const shm = state.wayland.globals.shm;
 
-    const buffer = try Buffer.nextBuffer(
-        &surface.clockBuffers,
-        surface.monitor.state.wayland.globals.shm,
-        surface.width,
-        surface.height,
-    );
+    // utf8 datetime
+    const str = try formatDatetime(state);
+    defer state.gpa.free(str);
+    const runes = try utils.toUtf8(state.gpa, str);
+    defer state.gpa.free(runes);
+
+    // resterize
+    const font = state.config.font;
+    const run = try fcft.TextRun.rasterizeUtf32(font, runes, .default);
+    defer run.destroy();
+
+    // compute total width
+    var i: usize = 0;
+    var width: u16 = 0;
+    while (i < run.count) : (i += 1) {
+        width += @intCast(u16, run.glyphs[i].advance.x);
+    }
+
+    // set subsurface offset
+    const font_height = @intCast(u32, font.height);
+    const x_offset = @intCast(i32, (bar.width - width) / 2);
+    const y_offset = @intCast(i32, (bar.height - font_height) / 2);
+    bar.clock.subsurface.setPosition(x_offset, y_offset);
+
+    const buffers = &bar.clock.buffers;
+    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
     buffer.busy = true;
 
-    // clear the buffer
     const bg_area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = surface.width, .height = surface.height },
+        .{ .x = 0, .y = 0, .width = width, .height = bar.height },
     };
     const bg_color = mem.zeroes(pixman.Color);
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
 
-    // get formatted datetime
-    const str = try formatDatetime(state);
-    defer state.gpa.free(str);
-
-    // ut8 encoding
-    const utf8 = try std.unicode.Utf8View.init(str);
-    var utf8_iter = utf8.iterator();
-
-    var runes = try state.gpa.alloc(u32, str.len);
-    defer state.gpa.free(runes);
-
-    var i: usize = 0;
-    while (utf8_iter.nextCodepoint()) |rune| : (i += 1) {
-        runes[i] = rune;
-    }
-    runes = state.gpa.resize(runes, i).?;
-
-    const run = try fcft.TextRun.rasterizeUtf32(
-        state.config.font,
-        runes,
-        .default,
-    );
-    defer run.destroy();
-
-    i = 0;
-    var text_width: u32 = 0;
-    while (i < run.count) : (i += 1) {
-        text_width += @intCast(u32, run.glyphs[i].advance.x);
-    }
-
-    const font_height = @intCast(u32, state.config.font.height);
-    var x_offset = @intCast(i32, @divFloor(surface.width - text_width, 2));
-    var y_offset = @intCast(i32, @divFloor(surface.height - font_height, 2));
-
+    var x: i32 = 0;
     i = 0;
     var color = pixman.Image.createSolidFill(&state.config.foregroundColor).?;
     while (i < run.count) : (i += 1) {
         const glyph = run.glyphs[i];
-        const x = x_offset + @intCast(i32, glyph.x);
-        const y = y_offset + state.config.font.ascent - @intCast(i32, glyph.y);
+        x += @intCast(i32, glyph.x);
+        const y = state.config.font.ascent - @intCast(i32, glyph.y);
         pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-        x_offset += glyph.advance.x;
+        x += glyph.advance.x - @intCast(i32, glyph.x);
     }
 
-    wlSurface.setBufferScale(surface.monitor.scale);
-    wlSurface.damageBuffer(0, 0, surface.width, surface.height);
-    wlSurface.attach(buffer.buffer, 0, 0);
+    surface.setBufferScale(bar.monitor.scale);
+    surface.damageBuffer(0, 0, width, bar.height);
+    surface.attach(buffer.buffer, 0, 0);
 }
 
-pub fn renderModules(surface: *Surface) !void {
-    const state = surface.monitor.state;
-    const wlSurface = surface.modulesSurface;
-
-    const buffer = try Buffer.nextBuffer(
-        &surface.modulesBuffers,
-        surface.monitor.state.wayland.globals.shm,
-        surface.width,
-        surface.height,
-    );
-    buffer.busy = true;
+pub fn renderModules(bar: *Bar) !void {
+    const state = bar.monitor.state;
+    const surface = bar.modules.surface;
+    const shm = state.wayland.globals.shm;
 
     // compose string
     var string = std.ArrayList(u8).init(state.gpa);
@@ -149,57 +127,51 @@ pub fn renderModules(surface: *Surface) !void {
     }
 
     // ut8 encoding
-    const utf8 = try std.unicode.Utf8View.init(string.items);
-    var utf8_iter = utf8.iterator();
-
-    var runes = try state.gpa.alloc(u32, string.items.len);
+    const runes = try utils.toUtf8(state.gpa, string.items);
     defer state.gpa.free(runes);
 
-    var i: usize = 0;
-    while (utf8_iter.nextCodepoint()) |rune| : (i += 1) {
-        runes[i] = rune;
-    }
-    runes = state.gpa.resize(runes, i).?;
+    // rasterize
+    const font = state.config.font;
+    const run = try fcft.TextRun.rasterizeUtf32(font, runes, .default);
+    defer run.destroy();
 
-    // clear the buffer
+    // compute total width
+    var i: usize = 0;
+    var width: u16 = 0;
+    while (i < run.count) : (i += 1) {
+        width += @intCast(u16, run.glyphs[i].advance.x);
+    }
+
+    // set subsurface offset
+    const font_height = @intCast(u32, state.config.font.height);
+    var x_offset = @intCast(i32, bar.width - width);
+    var y_offset = @intCast(i32, @divFloor(bar.height - font_height, 2));
+    bar.modules.subsurface.setPosition(x_offset, y_offset);
+
+    const buffers = &bar.modules.buffers;
+    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
+    buffer.busy = true;
+
     const bg_area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = surface.width, .height = surface.height },
+        .{ .x = 0, .y = 0, .width = width, .height = bar.height },
     };
     const bg_color = mem.zeroes(pixman.Color);
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
 
-    // compute offsets
-    const run = try fcft.TextRun.rasterizeUtf32(
-        state.config.font,
-        runes,
-        .default,
-    );
-    defer run.destroy();
-
-    i = 0;
-    var text_width: u32 = 0;
-    while (i < run.count) : (i += 1) {
-        text_width += @intCast(u32, run.glyphs[i].advance.x);
-    }
-
-    const font_height = @intCast(u32, state.config.font.height);
-    var x_offset = @intCast(i32, surface.width - text_width);
-    var y_offset = @intCast(i32, @divFloor(surface.height - font_height, 2));
-
-    // resterize
+    var x: i32 = 0;
     i = 0;
     var color = pixman.Image.createSolidFill(&state.config.foregroundColor).?;
     while (i < run.count) : (i += 1) {
         const glyph = run.glyphs[i];
-        const x = x_offset + @intCast(i32, glyph.x);
-        const y = y_offset + state.config.font.ascent - @intCast(i32, glyph.y);
+        x += @intCast(i32, glyph.x);
+        const y = state.config.font.ascent - @intCast(i32, glyph.y);
         pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-        x_offset += glyph.advance.x;
+        x += glyph.advance.x - @intCast(i32, glyph.x);
     }
 
-    wlSurface.setBufferScale(surface.monitor.scale);
-    wlSurface.damageBuffer(0, 0, surface.width, surface.height);
-    wlSurface.attach(buffer.buffer, 0, 0);
+    surface.setBufferScale(bar.monitor.scale);
+    surface.damageBuffer(0, 0, width, bar.height);
+    surface.attach(buffer.buffer, 0, 0);
 }
 
 fn renderTag(

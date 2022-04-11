@@ -4,7 +4,7 @@ const mem = std.mem;
 
 const fcft = @import("fcft");
 
-const Config = @import("config.zig").Config;
+const Config = @import("Config.zig");
 const Loop = @import("Loop.zig");
 const modules = @import("modules.zig");
 const Wayland = @import("wayland.zig").Wayland;

@@ -63,11 +63,11 @@ fn outputStatusListener(
             }
         },
     }
-    if (tags.monitor.surface) |surface| {
-        if (surface.configured) {
-            render.renderTags(surface) catch return;
-            surface.tagsSurface.commit();
-            surface.backgroundSurface.commit();
+    if (tags.monitor.bar) |bar| {
+        if (bar.configured) {
+            render.renderTags(bar) catch return;
+            bar.tags.surface.commit();
+            bar.background.surface.commit();
         }
     }
 }
@@ -76,8 +76,8 @@ pub fn handleClick(self: *Tags, x: u32, input: *Input) !void {
     const state = self.monitor.state;
     const control = state.wayland.globals.control;
 
-    if (self.monitor.surface) |surface| {
-        const index = x / surface.height;
+    if (self.monitor.bar) |bar| {
+        const index = x / bar.height;
         const payload = try std.fmt.allocPrintZ(
             state.gpa,
             "{d}",
