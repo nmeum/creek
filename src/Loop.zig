@@ -50,7 +50,7 @@ pub fn run(self: *Loop) !void {
         .callbackOut = Event.noop,
     });
     try events.append(gpa, try self.state.wayland.getEvent());
-    for (self.state.modules.items) |*module| {
+    for (self.state.modules.modules.items) |*module| {
         try events.append(gpa, try module.getEvent());
     }
 

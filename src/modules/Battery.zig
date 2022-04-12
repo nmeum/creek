@@ -5,7 +5,7 @@ const os = std.os;
 
 const udev = @import("udev");
 
-const Module = @import("../modules.zig").Module;
+const Module = @import("../Modules.zig").Module;
 const Event = @import("../Loop.zig").Event;
 const render = @import("../render.zig");
 const State = @import("../main.zig").State;
@@ -21,53 +21,44 @@ const Device = struct {
     name: []const u8,
     status: []const u8,
     capacity: u8,
-
-    pub fn deinit(self: *Device, gpa: mem.Allocator) void {
-        gpa.free(self.name);
-        gpa.free(self.status);
-    }
 };
 
 const DeviceList = std.ArrayList(Device);
 
-pub fn init(state: *State) !Battery {
-    const tfd = os.linux.timerfd_create(
-        os.CLOCK.MONOTONIC,
-        os.linux.TFD.CLOEXEC,
-    );
-    const interval: os.linux.itimerspec = .{
-        .it_interval = .{ .tv_sec = 10, .tv_nsec = 0 },
-        .it_value = .{ .tv_sec = 10, .tv_nsec = 0 },
+pub fn create(state: *State) !*Battery {
+    const self = try state.gpa.create(Battery);
+    self.state = state;
+
+    self.timerFd = tfd: {
+        const fd = os.linux.timerfd_create(
+            os.CLOCK.MONOTONIC,
+            os.linux.TFD.CLOEXEC,
+        );
+        const interval: os.linux.itimerspec = .{
+            .it_interval = .{ .tv_sec = 10, .tv_nsec = 0 },
+            .it_value = .{ .tv_sec = 10, .tv_nsec = 0 },
+        };
+        _ = os.linux.timerfd_settime(@intCast(i32, fd), 0, &interval, null);
+        break :tfd @intCast(os.fd_t, fd);
     };
-    _ = os.linux.timerfd_settime(@intCast(i32, tfd), 0, &interval, null);
 
-    const context = try udev.Udev.new();
+    self.context = try udev.Udev.new();
 
-    var devices = DeviceList.init(state.gpa);
-    try updateDevices(state.gpa, context, &devices);
-    if (devices.items.len == 0) return error.NoDevicesFound;
+    self.devices = DeviceList.init(state.gpa);
+    try updateDevices(state.gpa, self.context, &self.devices);
+    if (self.devices.items.len == 0) return error.NoDevicesFound;
 
-    return Battery{
-        .state = state,
-        .context = context,
-        .timerFd = @intCast(os.fd_t, tfd),
-        .devices = devices,
-    };
+    return self;
 }
 
-pub fn deinit(self: *Battery) void {
-    _ = self.context.unref();
-    for (self.devices.items) |*device| {
-        device.deinit(self.state.gpa);
-    }
-    self.devices.deinit();
-}
-
-pub fn module(self: *Battery) Module {
-    return .{
+pub fn module(self: *Battery) !Module {
+    return Module{
         .impl = @ptrCast(*anyopaque, self),
-        .eventFn = getEvent,
-        .printFn = print,
+        .funcs = .{
+            .getEvent = getEvent,
+            .print = print,
+            .destroy = destroy,
+        },
     };
 }
 
@@ -84,6 +75,36 @@ pub fn getEvent(self_opaque: *anyopaque) !Event {
         .callbackIn = callbackIn,
         .callbackOut = Event.noop,
     };
+}
+
+pub fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
+    const self = utils.cast(Battery)(self_opaque);
+
+    try updateDevices(self.state.gpa, self.context, &self.devices);
+    const device = self.devices.items[0];
+
+    var icon: []const u8 = "❓";
+    if (mem.eql(u8, device.status, "Discharging")) {
+        icon = "🔋";
+    } else if (mem.eql(u8, device.status, "Charging")) {
+        icon = "🔌";
+    } else if (mem.eql(u8, device.status, "Full")) {
+        icon = "⚡";
+    }
+
+    try fmt.format(writer, "{s}   {d}%", .{ icon, device.capacity });
+}
+
+pub fn destroy(self_opaque: *anyopaque) void {
+    const self = utils.cast(Battery)(self_opaque);
+
+    _ = self.context.unref();
+    for (self.devices.items) |*device| {
+        self.state.gpa.free(device.name);
+        self.state.gpa.free(device.status);
+    }
+    self.devices.deinit();
+    self.state.gpa.destroy(self);
 }
 
 fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
@@ -103,24 +124,6 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
             }
         }
     }
-}
-
-pub fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
-    const self = utils.cast(Battery)(self_opaque);
-
-    try updateDevices(self.state.gpa, self.context, &self.devices);
-    const device = self.devices.items[0];
-
-    var icon: []const u8 = "❓";
-    if (mem.eql(u8, device.status, "Discharging")) {
-        icon = "🔋";
-    } else if (mem.eql(u8, device.status, "Charging")) {
-        icon = "🔌";
-    } else if (mem.eql(u8, device.status, "Full")) {
-        icon = "⚡";
-    }
-
-    try fmt.format(writer, "{s}   {d}%", .{ icon, device.capacity });
 }
 
 fn updateDevices(

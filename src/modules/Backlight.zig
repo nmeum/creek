@@ -5,7 +5,7 @@ const os = std.os;
 
 const udev = @import("udev");
 
-const Module = @import("../modules.zig").Module;
+const Module = @import("../Modules.zig").Module;
 const Event = @import("../Loop.zig").Event;
 const render = @import("../render.zig");
 const State = @import("../main.zig").State;
@@ -21,51 +21,39 @@ const Device = struct {
     name: []const u8,
     value: u64,
     max: u64,
-
-    pub fn deinit(self: *Device, gpa: mem.Allocator) void {
-        gpa.free(self.name);
-    }
 };
 
 const DeviceList = std.ArrayList(Device);
 
-pub fn init(state: *State) !Backlight {
-    const context = try udev.Udev.new();
+pub fn create(state: *State) !*Backlight {
+    const self = try state.gpa.create(Backlight);
+    self.state = state;
+    self.context = try udev.Udev.new();
 
-    const monitor = try udev.Monitor.newFromNetlink(context, "udev");
-    try monitor.filterAddMatchSubsystemDevType("backlight", null);
-    try monitor.filterAddMatchSubsystemDevType("power_supply", null);
-    try monitor.enableReceiving();
+    self.monitor = try udev.Monitor.newFromNetlink(self.context, "udev");
+    try self.monitor.filterAddMatchSubsystemDevType("backlight", null);
+    try self.monitor.filterAddMatchSubsystemDevType("power_supply", null);
+    try self.monitor.enableReceiving();
 
-    var devices = DeviceList.init(state.gpa);
-    try updateDevices(state.gpa, context, &devices);
-    if (devices.items.len == 0) return error.NoDevicesFound;
+    self.devices = DeviceList.init(state.gpa);
+    try updateDevices(state.gpa, self.context, &self.devices);
+    if (self.devices.items.len == 0) return error.NoDevicesFound;
 
-    return Backlight{
-        .state = state,
-        .context = context,
-        .monitor = monitor,
-        .devices = devices,
-    };
-}
-
-pub fn deinit(self: *Backlight) void {
-    _ = self.context.unref();
-    for (self.devices.items) |*device| {
-        device.deinit(self.state.gpa);
-    }
-    self.devices.deinit();
+    return self;
 }
 
 pub fn module(self: *Backlight) !Module {
     return Module{
         .impl = @ptrCast(*anyopaque, self),
-        .eventFn = getEvent,
-        .printFn = print,
+        .funcs = .{
+            .getEvent = getEvent,
+            .print = print,
+            .destroy = destroy,
+        },
     };
 }
 
-pub fn getEvent(self_opaque: *anyopaque) !Event {
+fn getEvent(self_opaque: *anyopaque) !Event {
     const self = utils.cast(Backlight)(self_opaque);
 
     return Event{
@@ -95,7 +83,7 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
     }
 }
 
-pub fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
+fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     const self = utils.cast(Backlight)(self_opaque);
 
     try updateDevices(self.state.gpa, self.context, &self.devices);
@@ -147,4 +135,15 @@ fn updateOrAppend(
     };
     device.value = try fmt.parseInt(u64, value, 10);
     device.max = try fmt.parseInt(u64, max, 10);
+}
+
+fn destroy(self_opaque: *anyopaque) void {
+    const self = utils.cast(Backlight)(self_opaque);
+
+    _ = self.context.unref();
+    for (self.devices.items) |*device| {
+        self.state.gpa.free(device.name);
+    }
+    self.devices.deinit();
+    self.state.gpa.destroy(self);
 }

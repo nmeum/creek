@@ -121,7 +121,7 @@ pub fn renderModules(bar: *Bar) !void {
     defer string.deinit();
 
     const writer = string.writer();
-    for (state.modules.items) |*module| {
+    for (state.modules.modules.items) |*module| {
         try std.fmt.format(writer, " | ", .{});
         try module.print(writer);
     }

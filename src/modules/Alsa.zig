@@ -6,7 +6,7 @@ const os = std.os;
 
 const alsa = @cImport(@cInclude("alsa/asoundlib.h"));
 
-const Module = @import("../modules.zig").Module;
+const Module = @import("../Modules.zig").Module;
 const Event = @import("../Loop.zig").Event;
 const render = @import("../render.zig");
 const State = @import("../main.zig").State;
@@ -14,20 +14,44 @@ const utils = @import("../utils.zig");
 const Alsa = @This();
 
 state: *State,
-context: *alsa.snd_ctl_t,
+devices: DeviceList,
 
-pub fn init(state: *State) !Alsa {
-    return Alsa{
+const Device = struct {
+    ctl: *alsa.snd_ctl_t,
+    name: []const u8,
+};
+
+const DeviceList = std.ArrayList(Device);
+
+pub fn create(state: *State) !*Alsa {
+    const self = try state.gpa.create(Alsa);
+    self.* = .{
         .state = state,
-        .context = try getAlsaCtl(state.gpa),
+        .devices = DeviceList.init(state.gpa),
     };
+
+    var card: i32 = -1;
+    while(alsa.snd_card_next(&card) >= 0 and card >= 0) {
+        const name = try fmt.allocPrintZ(state.gpa, "hw:{d}", .{ card });
+
+        var ctl: ?*alsa.snd_ctl_t = null;
+        _ = alsa.snd_ctl_open(&ctl, name.ptr, alsa.SND_CTL_READONLY);
+        _ = alsa.snd_ctl_subscribe_events(ctl, 1);
+
+        try self.devices.append(.{ .ctl = ctl.?, .name = name });
+    }
+
+    return self;
 }
 
-pub fn module(self: *Alsa) Module {
-    return .{
+pub fn module(self: *Alsa) !Module {
+    return Module{
         .impl = @ptrCast(*anyopaque, self),
-        .eventFn = getEvent,
-        .printFn = print,
+        .funcs = .{
+            .getEvent = getEvent,
+            .print = print,
+            .destroy = destroy,
+        },
     };
 }
 
@@ -35,7 +59,8 @@ fn getEvent(self_opaque: *anyopaque) !Event {
     const self = utils.cast(Alsa)(self_opaque);
 
     var fd = mem.zeroes(alsa.pollfd);
-    _ = alsa.snd_ctl_poll_descriptors(self.context, &fd, 1);
+    const device = &self.devices.items[0];
+    _ = alsa.snd_ctl_poll_descriptors(device.ctl, &fd, 1);
 
     return Event{
         .fd = @bitCast(os.pollfd, fd),
@@ -61,7 +86,6 @@ fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     alsa.snd_mixer_selem_id_set_index(sid, 0);
     alsa.snd_mixer_selem_id_set_name(sid, "Master");
     const elem = alsa.snd_mixer_find_selem(handle, sid);
-    _ = elem;
 
     var unmuted: i32 = 0;
     _ = alsa.snd_mixer_selem_get_playback_switch(
@@ -98,7 +122,9 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
     var event: ?*alsa.snd_ctl_event_t = null;
     _ = alsa.snd_ctl_event_malloc(&event);
     defer alsa.snd_ctl_event_free(event);
-    _ = alsa.snd_ctl_read(self.context, event);
+
+    const device = &self.devices.items[0];
+    _ = alsa.snd_ctl_read(device.ctl, event);
 
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
@@ -113,15 +139,12 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
     }
 }
 
-fn getAlsaCtl(gpa: mem.Allocator) !*alsa.snd_ctl_t {
-    var card: i32 = -1;
-    _ = alsa.snd_card_next(&card);
-    const name = try fmt.allocPrintZ(gpa, "hw:{d}", .{ card });
-    defer gpa.free(name);
+fn destroy(self_opaque: *anyopaque) void {
+    const self = utils.cast(Alsa)(self_opaque);
 
-    var ctl: ?*alsa.snd_ctl_t = null;
-    _ = alsa.snd_ctl_open(&ctl, name.ptr, alsa.SND_CTL_READONLY);
-    _ = alsa.snd_ctl_subscribe_events(ctl, 1);
-
-    return ctl.?;
+    for (self.devices.items) |*device| {
+        self.state.gpa.free(device.name);
+    }
+    self.devices.deinit();
+    self.state.gpa.destroy(self);
 }

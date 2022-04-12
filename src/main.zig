@@ -6,19 +6,15 @@ const fcft = @import("fcft");
 
 const Config = @import("Config.zig");
 const Loop = @import("Loop.zig");
-const modules = @import("modules.zig");
+const Modules = @import("Modules.zig");
 const Wayland = @import("wayland.zig").Wayland;
 
 pub const State = struct {
     gpa: mem.Allocator,
     config: Config,
     wayland: Wayland,
+    modules: Modules,
     loop: Loop,
-
-    alsa: modules.Alsa,
-    backlight: modules.Backlight,
-    battery: modules.Battery,
-    modules: std.ArrayList(modules.Module),
 };
 
 pub fn main() anyerror!void {
@@ -33,23 +29,14 @@ pub fn main() anyerror!void {
     state.config = try Config.init();
     state.wayland = try Wayland.init(&state);
     defer state.wayland.deinit();
+    state.modules = Modules.init(&state);
+    defer state.modules.deinit();
     state.loop = try Loop.init(&state);
 
     // modules
-    state.modules = std.ArrayList(modules.Module).init(state.gpa);
-    defer state.modules.deinit();
-
-    state.alsa = try modules.Alsa.init(&state);
-    state.backlight = try modules.Backlight.init(&state);
-    defer state.backlight.deinit();
-    state.battery = try modules.Battery.init(&state);
-    defer state.battery.deinit();
-
-    try state.modules.appendSlice(&.{
-        try state.backlight.module(),
-        state.battery.module(),
-        state.alsa.module(),
-    });
+    try state.modules.register(Modules.Alsa);
+    try state.modules.register(Modules.Backlight);
+    try state.modules.register(Modules.Battery);
 
     // event loop
     try state.wayland.registerGlobals();
