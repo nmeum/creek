@@ -7,8 +7,9 @@ and displays battery capacity and screen brightness.
 
 Some important things are not implemented yet:
 
-* configuration via cli flags
 * configuration via config file
+* volume (alsa/pulseaudio/pipewire) module
+* cpu module
 
 ## Build
 
@@ -23,7 +24,7 @@ zig build -Drelease-safe --prefix ~/.local install
 Add the following toward the end of `$XDG_CONFIG_HOME/river/init`:
 
 ```
-riverctl spawn levee
+riverctl spawn levee -m backlight -m battery
 ```
 
 ## Dependencies

@@ -1,7 +1,10 @@
 const std = @import("std");
 const heap = std.heap;
+const io = std.io;
 const mem = std.mem;
+const os = std.os;
 
+const clap = @import("clap");
 const fcft = @import("fcft");
 
 const Config = @import("Config.zig");
@@ -23,6 +26,17 @@ pub fn main() anyerror!void {
 
     fcft.init(.auto, false, .info);
 
+    // cli arguments
+    const params = comptime [_]clap.Param(clap.Help){
+        try clap.parseParam("-h, --help  Display this help and exit."),
+        try clap.parseParam("-m, --module <str>...  Add module."),
+    };
+    var args = try clap.parse(clap.Help, &params, .{});
+    defer args.deinit();
+    if (args.flag("--help")) {
+        return clap.help(io.getStdErr().writer(), &params);
+    }
+
     // initialization
     var state: State = undefined;
     state.gpa = gpa.allocator();
@@ -34,9 +48,18 @@ pub fn main() anyerror!void {
     state.loop = try Loop.init(&state);
 
     // modules
-    try state.modules.register(Modules.Alsa);
-    try state.modules.register(Modules.Backlight);
-    try state.modules.register(Modules.Battery);
+    for (args.options("--module")) |module_name| {
+        if (mem.eql(u8, module_name, "alsa")) {
+            try state.modules.register(Modules.Alsa);
+        } else if (mem.eql(u8, module_name, "backlight")) {
+            try state.modules.register(Modules.Backlight);
+        } else if (mem.eql(u8, module_name, "battery")) {
+            try state.modules.register(Modules.Battery);
+        } else {
+            std.log.err("unknown module: {s}", .{ module_name });
+            os.exit(1);
+        }
+    }
 
     // event loop
     try state.wayland.registerGlobals();
