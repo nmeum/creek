@@ -49,12 +49,12 @@ pub fn main() anyerror!void {
 
     // modules
     for (args.options("--module")) |module_name| {
-        if (mem.eql(u8, module_name, "alsa")) {
-            try state.modules.register(Modules.Alsa);
-        } else if (mem.eql(u8, module_name, "backlight")) {
+        if (mem.eql(u8, module_name, "backlight")) {
             try state.modules.register(Modules.Backlight);
         } else if (mem.eql(u8, module_name, "battery")) {
             try state.modules.register(Modules.Battery);
+        } else if (mem.eql(u8, module_name, "pulse")) {
+            try state.modules.register(Modules.Pulse);
         } else {
             std.log.err("unknown module: {s}", .{ module_name });
             os.exit(1);

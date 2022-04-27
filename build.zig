@@ -49,10 +49,10 @@ pub fn build(b: *std.build.Builder) void {
     exe.addPackage(wayland);
 
     exe.linkLibC();
-    exe.linkSystemLibrary("alsa");
     exe.linkSystemLibrary("fcft");
     exe.linkSystemLibrary("libudev");
     exe.linkSystemLibrary("pixman-1");
+    exe.linkSystemLibrary("libpulse");
     exe.linkSystemLibrary("wayland-client");
 
     exe.install();

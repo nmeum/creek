@@ -8,9 +8,9 @@ const Modules = @This();
 state: *State,
 modules: ArrayList(Module),
 
-pub const Alsa = @import("modules/Alsa.zig");
 pub const Backlight = @import("modules/Backlight.zig");
 pub const Battery = @import("modules/Battery.zig");
+pub const Pulse = @import("modules/Pulse.zig");
 
 pub const Module = struct {
     impl: *anyopaque,
