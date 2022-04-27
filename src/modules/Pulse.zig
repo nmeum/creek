@@ -86,6 +86,9 @@ fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
 fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
     const self = utils.cast(Pulse)(self_opaque);
 
+    var data = mem.zeroes([8]u8);
+    _ = os.read(self.fd, &data) catch return;
+
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.configured) {
