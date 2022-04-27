@@ -17,37 +17,21 @@ api: *pulse.pa_mainloop_api,
 context: *pulse.pa_context,
 fd: os.fd_t,
 sink_name: []const u8,
+sink_is_running: bool,
 volume: u8,
 muted: bool,
 
 pub fn create(state: *State) !*Pulse {
     const self = try state.gpa.create(Pulse);
     self.state = state;
+    self.volume = 0;
+    self.muted = false;
+    try self.initPulse();
 
-    self.mainloop = pulse.pa_threaded_mainloop_new() orelse {
-        return error.InitFailed;
-    };
-    self.api = pulse.pa_threaded_mainloop_get_api(self.mainloop);
-    self.context = pulse.pa_context_new(self.api, "levee") orelse {
-        return error.InitFailed;
-    };
-    const connected = pulse.pa_context_connect(
-        self.context,
-        null,
-        pulse.PA_CONTEXT_NOFAIL,
-        null,
-    );
-    if (connected < 0) return error.InitFailed;
-    pulse.pa_context_set_state_callback(
-        self.context,
-        contextStateCallback,
-        @ptrCast(*anyopaque, self),
-    );
-    const started = pulse.pa_threaded_mainloop_start(self.mainloop);
-    if (started < 0) return error.InitFailed;
-
+    // create descriptor for poll in Loop
     const fd = try os.eventfd(0, os.linux.EFD.NONBLOCK);
     self.fd = @intCast(os.fd_t, fd);
+
     return self;
 }
 
@@ -87,7 +71,7 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
     const self = utils.cast(Pulse)(self_opaque);
 
     var data = mem.zeroes([8]u8);
-    _ = os.read(self.fd, &data) catch return;
+    _ = os.read(self.fd, &data) catch return error.Terminate;
 
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
@@ -105,10 +89,38 @@ fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
 fn destroy(self_opaque: *anyopaque) void {
     const self = utils.cast(Pulse)(self_opaque);
 
-    self.api.quit.?(self.api, 0);
+    self.deinitPulse();
+    self.state.gpa.destroy(self);
+}
+
+fn initPulse(self: *Pulse) !void {
+    self.mainloop = pulse.pa_threaded_mainloop_new() orelse {
+        return error.InitFailed;
+    };
+    self.api = pulse.pa_threaded_mainloop_get_api(self.mainloop);
+    self.context = pulse.pa_context_new(self.api, "levee") orelse {
+        return error.InitFailed;
+    };
+    const connected = pulse.pa_context_connect(
+        self.context,
+        null,
+        pulse.PA_CONTEXT_NOFAIL,
+        null,
+    );
+    if (connected < 0) return error.InitFailed;
+    pulse.pa_context_set_state_callback(
+        self.context,
+        contextStateCallback,
+        @ptrCast(*anyopaque, self),
+    );
+    const started = pulse.pa_threaded_mainloop_start(self.mainloop);
+    if (started < 0) return error.InitFailed;
+}
+
+fn deinitPulse(self: *Pulse) void {
+    if (self.api.quit) |quit| quit(self.api, 0);
     pulse.pa_threaded_mainloop_stop(self.mainloop);
     pulse.pa_threaded_mainloop_free(self.mainloop);
-    self.state.gpa.destroy(self);
 }
 
 export fn contextStateCallback(
@@ -137,8 +149,12 @@ export fn contextStateCallback(
                 pulse.PA_SUBSCRIPTION_MASK_SOURCE_OUTPUT;
             _ = pulse.pa_context_subscribe(ctx, mask, null, null);
         },
-        pulse.PA_CONTEXT_TERMINATED => self.api.quit.?(self.api, 0),
-        pulse.PA_CONTEXT_FAILED => self.api.quit.?(self.api, 0),
+        pulse.PA_CONTEXT_TERMINATED, pulse.PA_CONTEXT_FAILED => {
+            std.log.info("pulse: restarting", .{});
+            self.deinitPulse();
+            self.initPulse() catch return;
+            std.log.info("pulse: restarted", .{});
+        },
         else => {},
     }
 }
@@ -151,6 +167,9 @@ export fn serverInfoCallback(
     const self = utils.cast(Pulse)(self_opaque.?);
 
     self.sink_name = mem.span(info.?.default_sink_name);
+    self.sink_is_running = true;
+    std.log.info("pulse: sink set to {s}", .{ self.sink_name });
+
     _ = pulse.pa_context_get_sink_info_list(ctx, sinkInfoCallback, self_opaque);
 }
 
@@ -184,7 +203,16 @@ export fn sinkInfoCallback(
     const info = maybe_info orelse return;
 
     const sink_name = mem.span(info.name);
-    if (!mem.eql(u8, self.sink_name, sink_name)) return;
+    const is_current = mem.eql(u8, self.sink_name, sink_name);
+    const is_running = info.state == pulse.PA_SINK_RUNNING;
+
+    if (is_current) self.sink_is_running = is_running;
+
+    if (!self.sink_is_running and is_running) {
+        self.sink_name = sink_name;
+        self.sink_is_running = true;
+        std.log.info("pulse: sink set to {s}", .{ sink_name });
+    }
 
     self.volume = volume: {
         const avg = pulse.pa_cvolume_avg(&info.volume);
