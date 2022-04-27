@@ -76,7 +76,11 @@ fn getEvent(self_opaque: *anyopaque) !Event {
 fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     const self = utils.cast(Pulse)(self_opaque);
 
-    return writer.print("🔊   {d}%", .{ self.volume });
+    if (self.muted) {
+        try writer.print("   🔇   ", .{});
+    } else {
+        try writer.print("🔊   {d}%", .{ self.volume });
+    }
 }
 
 fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
