@@ -10,7 +10,7 @@ const fcft = @import("fcft");
 const Config = @import("Config.zig");
 const Loop = @import("Loop.zig");
 const Modules = @import("Modules.zig");
-const Wayland = @import("wayland.zig").Wayland;
+const Wayland = @import("Wayland.zig");
 
 pub const State = struct {
     gpa: mem.Allocator,

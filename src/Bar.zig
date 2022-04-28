@@ -5,7 +5,7 @@ const wl = @import("wayland").client.wl;
 const zwlr = @import("wayland").client.zwlr;
 
 const Buffer = @import("Buffer.zig");
-const Monitor = @import("wayland.zig").Monitor;
+const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
 const State = @import("main.zig").State;
 const Bar = @This();

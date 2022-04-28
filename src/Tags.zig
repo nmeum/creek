@@ -2,9 +2,9 @@ const std = @import("std");
 
 const zriver = @import("wayland").client.zriver;
 
-const Monitor = @import("wayland.zig").Monitor;
+const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
-const Input = @import("wayland.zig").Input;
+const Input = @import("Input.zig");
 const State = @import("main.zig").State;
 const Tags = @This();
 
