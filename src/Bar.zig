@@ -7,7 +7,7 @@ const zwlr = @import("wayland").client.zwlr;
 const Buffer = @import("Buffer.zig");
 const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
-const State = @import("main.zig").State;
+const Widget = @import("Widget.zig");
 const Bar = @This();
 
 monitor: *Monitor,
@@ -25,35 +25,6 @@ modules: Widget,
 configured: bool,
 width: u16,
 height: u16,
-
-pub const Widget = struct {
-    surface: *wl.Surface,
-    subsurface: *wl.Subsurface,
-    buffers: [2]Buffer,
-
-    pub fn init(state: *State, background: *wl.Surface) !Widget {
-        const globals = &state.wayland.globals;
-
-        const surface = try globals.compositor.createSurface();
-        const subsurface = try globals.subcompositor.getSubsurface(
-            surface,
-            background,
-        );
-
-        return Widget{
-            .surface = surface,
-            .subsurface = subsurface,
-            .buffers = mem.zeroes([2]Buffer),
-        };
-    }
-
-    pub fn deinit(self: *Widget) void {
-        self.surface.destroy();
-        self.subsurface.destroy();
-        self.buffers[0].deinit();
-        self.buffers[1].deinit();
-    }
-};
 
 pub fn create(monitor: *Monitor) !*Bar {
     const state = monitor.state;
