@@ -242,10 +242,11 @@ pub const Input = struct {
     globalName: u32,
 
     pointer: struct {
-        wlPointer: ?*wl.Pointer,
+        pointer: ?*wl.Pointer,
         x: i32,
         y: i32,
         bar: ?*Bar,
+        surface: ?*wl.Surface,
     },
 
     pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Input {
@@ -254,16 +255,17 @@ pub const Input = struct {
         self.seat = try registry.bind(name, wl.Seat, 3);
         self.globalName = name;
 
-        self.pointer.wlPointer = null;
+        self.pointer.pointer = null;
         self.pointer.bar = null;
+        self.pointer.surface = null;
 
         self.seat.setListener(*Input, listener, self);
         return self;
     }
 
     pub fn destroy(self: *Input) void {
-        if (self.pointer.wlPointer) |wlPointer| {
-            wlPointer.release();
+        if (self.pointer.pointer) |pointer| {
+            pointer.release();
         }
         self.seat.release();
         self.state.gpa.destroy(self);
@@ -272,13 +274,13 @@ pub const Input = struct {
     fn listener(seat: *wl.Seat, event: wl.Seat.Event, input: *Input) void {
         switch (event) {
             .capabilities => |data| {
-                if (input.pointer.wlPointer) |wlPointer| {
-                    wlPointer.release();
-                    input.pointer.wlPointer = null;
+                if (input.pointer.pointer) |pointer| {
+                    pointer.release();
+                    input.pointer.pointer = null;
                 }
                 if (data.capabilities.pointer) {
-                    input.pointer.wlPointer = seat.getPointer() catch return;
-                    input.pointer.wlPointer.?.setListener(
+                    input.pointer.pointer = seat.getPointer() catch return;
+                    input.pointer.pointer.?.setListener(
                         *Input,
                         pointerListener,
                         input,
@@ -300,9 +302,11 @@ pub const Input = struct {
                 input.pointer.y = data.surface_y.toInt();
                 const bar = input.state.wayland.findBar(data.surface);
                 input.pointer.bar = bar;
+                input.pointer.surface = data.surface;
             },
             .leave => |_| {
                 input.pointer.bar = null;
+                input.pointer.surface = null;
             },
             .motion => |data| {
                 input.pointer.x = data.surface_x.toInt();
@@ -312,6 +316,9 @@ pub const Input = struct {
                 if (data.state != .pressed) return;
                 if (input.pointer.bar) |bar| {
                     if (!bar.configured) return;
+
+                    const tagsSurface = bar.tags.surface;
+                    if (input.pointer.surface != tagsSurface) return;
 
                     const x = @intCast(u32, input.pointer.x);
                     if (x < bar.height * 9) {
