@@ -1,0 +1,8 @@
+#!/bin/sh
+
+set -e
+
+name="levee-$1"
+mkdir "$name"
+git ls-files --recurse-submodules | xargs cp --parents -r -t "$name"
+tar -cavf "$name.tar.gz" "$name"

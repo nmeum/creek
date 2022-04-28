@@ -1,0 +1,17 @@
+image: archlinux
+packages:
+  - zig
+  - wayland
+  - wayland-protocols
+  - fcft
+  - pixman
+  - libpulse
+sources:
+  - https://git.sr.ht/~andreafeletto/levee
+tasks:
+  - submodules: |
+      cd levee
+      git submodule update --init
+  - build: |
+      cd levee
+      zig build
