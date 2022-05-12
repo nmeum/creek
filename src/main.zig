@@ -24,7 +24,7 @@ pub fn main() anyerror!void {
     var gpa: heap.GeneralPurposeAllocator(.{}) = .{};
     defer _ = gpa.deinit();
 
-    fcft.init(.auto, false, .info);
+    fcft.init(.auto, false, .warning);
 
     // cli arguments
     const params = comptime [_]clap.Param(clap.Help){
@@ -59,6 +59,11 @@ pub fn main() anyerror!void {
             std.log.err("unknown module: {s}", .{ module_name });
             os.exit(1);
         }
+    }
+
+    if (state.modules.modules.items.len == 0) {
+        std.log.err("having no module is currently not supported", .{});
+        return clap.help(io.getStdErr().writer(), &params);
     }
 
     // event loop
