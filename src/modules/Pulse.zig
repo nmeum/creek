@@ -63,7 +63,7 @@ fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     if (self.muted) {
         try writer.print("   🔇   ", .{});
     } else {
-        try writer.print("🔊   {d}%", .{ self.volume });
+        try writer.print("🔊   {d}%", .{self.volume});
     }
 }
 
@@ -171,7 +171,7 @@ export fn serverInfoCallback(
 
     self.sink_name = mem.span(info.?.default_sink_name);
     self.sink_is_running = true;
-    std.log.info("pulse: sink set to {s}", .{ self.sink_name });
+    std.log.info("pulse: sink set to {s}", .{self.sink_name});
 
     _ = pulse.pa_context_get_sink_info_list(ctx, sinkInfoCallback, self_opaque);
 }
@@ -214,7 +214,7 @@ export fn sinkInfoCallback(
     if (!self.sink_is_running and is_running) {
         self.sink_name = sink_name;
         self.sink_is_running = true;
-        std.log.info("pulse: sink set to {s}", .{ sink_name });
+        std.log.info("pulse: sink set to {s}", .{sink_name});
     }
 
     self.volume = volume: {

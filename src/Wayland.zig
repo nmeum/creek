@@ -180,9 +180,7 @@ fn bindGlobal(
     } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
         const global = try registry.bind(name, zwlr.LayerShellV1, 1);
         self.setGlobal(global);
-    } else if (
-        strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0
-    ) {
+    } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
         const global = try registry.bind(name, zriver.StatusManagerV1, 1);
         self.setGlobal(global);
     } else if (strcmp(iface, zriver.ControlV1.getInterface().name) == 0) {

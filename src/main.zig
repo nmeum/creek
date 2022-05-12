@@ -56,7 +56,7 @@ pub fn main() anyerror!void {
         } else if (mem.eql(u8, module_name, "pulse")) {
             try state.modules.register(Modules.Pulse);
         } else {
-            std.log.err("unknown module: {s}", .{ module_name });
+            std.log.err("unknown module: {s}", .{module_name});
             os.exit(1);
         }
     }
