@@ -67,11 +67,14 @@ fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     }
 }
 
-fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
+fn callbackIn(self_opaque: *anyopaque) void {
     const self = utils.cast(Pulse)(self_opaque);
 
     var data = mem.zeroes([8]u8);
-    _ = os.read(self.fd, &data) catch return error.Terminate;
+    _ = os.read(self.fd, &data) catch {
+        std.log.err("read failed", .{});
+        os.exit(1);
+    };
 
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {

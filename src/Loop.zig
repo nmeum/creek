@@ -14,13 +14,13 @@ pub const Event = struct {
     callbackIn: Callback,
     callbackOut: Callback,
 
-    pub const Callback = fn (*anyopaque) error{Terminate}!void;
+    pub const Callback = fn (*anyopaque) void;
 
-    pub fn terminate(_: *anyopaque) error{Terminate}!void {
-        return error.Terminate;
+    pub fn terminate(_: *anyopaque) void {
+        os.exit(0);
     }
 
-    pub fn noop(_: *anyopaque) error{Terminate}!void {
+    pub fn noop(_: *anyopaque) void {
         return;
     }
 };
@@ -38,7 +38,6 @@ pub fn init(state: *State) !Loop {
 
 pub fn run(self: *Loop) !void {
     const gpa = self.state.gpa;
-    const display = self.state.wayland.display;
 
     var events: std.MultiArrayList(Event) = .{};
     defer events.deinit(gpa);
@@ -56,11 +55,7 @@ pub fn run(self: *Loop) !void {
 
     const fds = events.items(.fd);
     while (true) {
-        while (true) {
-            const ret = try display.dispatchPending();
-            _ = try display.flush();
-            if (ret <= 0) break;
-        }
+        self.state.wayland.flushAndPrepareRead();
         _ = try os.poll(fds, -1);
 
         for (fds) |fd, i| {
@@ -69,11 +64,11 @@ pub fn run(self: *Loop) !void {
 
             if (fd.revents & os.POLL.IN != 0) {
                 const event = events.get(i);
-                event.callbackIn(event.data) catch return;
+                event.callbackIn(event.data);
             }
             if (fd.revents & os.POLL.OUT != 0) {
                 const event = events.get(i);
-                event.callbackOut(event.data) catch return;
+                event.callbackOut(event.data);
             }
         }
     }

@@ -17,6 +17,15 @@ pub fn build(b: *std.build.Builder) void {
     scanner.addProtocolPath("protocol/river-status-unstable-v1.xml");
     scanner.addProtocolPath("protocol/river-control-unstable-v1.xml");
 
+    scanner.generate("wl_compositor", 4);
+    scanner.generate("wl_subcompositor", 1);
+    scanner.generate("wl_shm", 1);
+    scanner.generate("wl_output", 4);
+    scanner.generate("wl_seat", 7);
+    scanner.generate("zwlr_layer_shell_v1", 1);
+    scanner.generate("zriver_status_manager_v1", 1);
+    scanner.generate("zriver_control_v1", 1);
+
     exe.step.dependOn(&scanner.step);
     scanner.addCSource(exe);
 

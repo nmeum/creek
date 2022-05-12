@@ -107,7 +107,7 @@ pub fn destroy(self_opaque: *anyopaque) void {
     self.state.gpa.destroy(self);
 }
 
-fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
+fn callbackIn(self_opaque: *anyopaque) void {
     const self = utils.cast(Battery)(self_opaque);
 
     var expirations = mem.zeroes([8]u8);

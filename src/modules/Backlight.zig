@@ -68,10 +68,13 @@ fn getEvent(self_opaque: *anyopaque) !Event {
     };
 }
 
-fn callbackIn(self_opaque: *anyopaque) error{Terminate}!void {
+fn callbackIn(self_opaque: *anyopaque) void {
     const self = utils.cast(Backlight)(self_opaque);
 
-    _ = self.monitor.receiveDevice() catch return;
+    _ = self.monitor.receiveDevice() catch {
+        std.log.err("failed to receive udev device", .{});
+        os.exit(1);
+    };
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.configured) {

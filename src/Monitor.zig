@@ -16,7 +16,7 @@ tags: *Tags,
 pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Monitor {
     const self = try state.gpa.create(Monitor);
     self.state = state;
-    self.output = try registry.bind(name, wl.Output, 3);
+    self.output = try registry.bind(name, wl.Output, 4);
     self.globalName = name;
     self.scale = 1;
 

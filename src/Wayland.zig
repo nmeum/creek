@@ -60,11 +60,15 @@ pub fn deinit(self: *Wayland) void {
 
 pub fn registerGlobals(self: *Wayland) !void {
     self.registry.setListener(*State, registryListener, self.state);
-    _ = try self.display.roundtrip();
-
-    for (self.globalsMask) |is_registered| {
-        if (!is_registered) return error.UnsupportedGlobal;
+    if (self.display.roundtrip() != .SUCCESS) {
+        std.log.err("failed roundtrip for initialization of globals", .{});
+        os.exit(1);
     }
+
+    for (self.globalsMask) |is_registered| if (!is_registered) {
+        std.log.err("missing global", .{});
+        os.exit(1);
+    };
 }
 
 pub fn getEvent(self: *Wayland) !Event {
@@ -77,19 +81,55 @@ pub fn getEvent(self: *Wayland) !Event {
             .revents = undefined,
         },
         .data = @ptrCast(*anyopaque, self),
-        .callbackIn = dispatch,
-        .callbackOut = flush,
+        .callbackIn = read,
+        .callbackOut = Event.noop,
     };
 }
 
-fn dispatch(self_opaque: *anyopaque) error{Terminate}!void {
-    const self = utils.cast(Wayland)(self_opaque);
-    _ = self.display.dispatch() catch return;
+pub fn flushAndPrepareRead(self: *Wayland) void {
+    while (!self.display.prepareRead()) {
+        const errno = self.display.dispatchPending();
+        if (errno != .SUCCESS) {
+            std.log.err("failed to dispatch pending wayland events", .{});
+            os.exit(1);
+        }
+    }
+
+    while (true) {
+        const errno = self.display.flush();
+        switch (errno) {
+            .SUCCESS => return,
+            .PIPE => {
+                _ = self.display.readEvents();
+                std.log.err("connection to wayland server unexpectedly terminated", .{});
+                os.exit(1);
+            },
+            .AGAIN => {
+                var wayland_out = [_]os.pollfd{.{
+                    .fd = self.display.getFd(),
+                    .events = os.POLL.OUT,
+                    .revents = undefined,
+                }};
+                _ = os.poll(&wayland_out, -1) catch {
+                    std.log.err("polling for wayland socket being writable failed", .{});
+                    os.exit(1);
+                };
+            },
+            else => {
+                std.log.err("failed to flush wayland requests", .{});
+                os.exit(1);
+            },
+        }
+    }
 }
 
-fn flush(self_opaque: *anyopaque) error{Terminate}!void {
+fn read(self_opaque: *anyopaque) void {
     const self = utils.cast(Wayland)(self_opaque);
-    _ = self.display.flush() catch return;
+    const errno = self.display.readEvents();
+    if (errno != .SUCCESS) {
+        std.log.err("failed to read wayland events", .{});
+        os.exit(1);
+    }
 }
 
 fn registryListener(

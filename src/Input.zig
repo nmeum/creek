@@ -19,7 +19,7 @@ pointer: struct {
 pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Input {
     const self = try state.gpa.create(Input);
     self.state = state;
-    self.seat = try registry.bind(name, wl.Seat, 3);
+    self.seat = try registry.bind(name, wl.Seat, 7);
     self.globalName = name;
 
     self.pointer.pointer = null;
