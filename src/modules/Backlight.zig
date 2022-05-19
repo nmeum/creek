@@ -1,5 +1,6 @@
 const std = @import("std");
 const fmt = std.fmt;
+const log = std.log;
 const mem = std.mem;
 const os = std.os;
 
@@ -68,13 +69,14 @@ fn getEvent(self_opaque: *anyopaque) !Event {
     };
 }
 
-fn callbackIn(self_opaque: *anyopaque) void {
+fn callbackIn(self_opaque: *anyopaque) Event.Action {
     const self = utils.cast(Backlight)(self_opaque);
 
-    _ = self.monitor.receiveDevice() catch {
-        std.log.err("failed to receive udev device", .{});
-        os.exit(1);
+    _ = self.monitor.receiveDevice() catch |err| {
+        log.err("failed to receive udev device: {s}", .{@errorName(err)});
+        return .terminate;
     };
+
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.configured) {
@@ -84,6 +86,7 @@ fn callbackIn(self_opaque: *anyopaque) void {
             }
         }
     }
+    return .ok;
 }
 
 fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {

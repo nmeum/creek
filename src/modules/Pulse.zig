@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = std.log;
 const mem = std.mem;
 const os = std.os;
 
@@ -67,13 +68,13 @@ fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     }
 }
 
-fn callbackIn(self_opaque: *anyopaque) void {
+fn callbackIn(self_opaque: *anyopaque) Event.Action {
     const self = utils.cast(Pulse)(self_opaque);
 
     var data = mem.zeroes([8]u8);
-    _ = os.read(self.fd, &data) catch {
-        std.log.err("read failed", .{});
-        os.exit(1);
+    _ = os.read(self.fd, &data) catch |err| {
+        log.err("pulse: failed to read: {s}", .{@errorName(err)});
+        return .terminate;
     };
 
     for (self.state.wayland.monitors.items) |monitor| {
@@ -87,6 +88,7 @@ fn callbackIn(self_opaque: *anyopaque) void {
             }
         }
     }
+    return .ok;
 }
 
 fn destroy(self_opaque: *anyopaque) void {
@@ -153,10 +155,10 @@ export fn contextStateCallback(
             _ = pulse.pa_context_subscribe(ctx, mask, null, null);
         },
         pulse.PA_CONTEXT_TERMINATED, pulse.PA_CONTEXT_FAILED => {
-            std.log.info("pulse: restarting", .{});
+            log.info("pulse: restarting", .{});
             self.deinitPulse();
             self.initPulse() catch return;
-            std.log.info("pulse: restarted", .{});
+            log.info("pulse: restarted", .{});
         },
         else => {},
     }
@@ -171,7 +173,7 @@ export fn serverInfoCallback(
 
     self.sink_name = mem.span(info.?.default_sink_name);
     self.sink_is_running = true;
-    std.log.info("pulse: sink set to {s}", .{self.sink_name});
+    log.info("pulse: sink set to {s}", .{self.sink_name});
 
     _ = pulse.pa_context_get_sink_info_list(ctx, sinkInfoCallback, self_opaque);
 }
@@ -214,7 +216,7 @@ export fn sinkInfoCallback(
     if (!self.sink_is_running and is_running) {
         self.sink_name = sink_name;
         self.sink_is_running = true;
-        std.log.info("pulse: sink set to {s}", .{sink_name});
+        log.info("pulse: sink set to {s}", .{sink_name});
     }
 
     self.volume = volume: {

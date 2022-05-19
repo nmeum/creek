@@ -1,8 +1,10 @@
 const std = @import("std");
+const log = std.log;
 const mem = std.mem;
 const os = std.os;
 
 const State = @import("main.zig").State;
+const utils = @import("utils.zig");
 const Loop = @This();
 
 state: *State,
@@ -14,22 +16,24 @@ pub const Event = struct {
     callbackIn: Callback,
     callbackOut: Callback,
 
-    pub const Callback = fn (*anyopaque) void;
+    pub const Action = enum { ok, terminate };
+    pub const Callback = fn (*anyopaque) Action;
 
-    pub fn terminate(_: *anyopaque) void {
-        os.exit(0);
+    pub fn terminate(_: *anyopaque) Action {
+        return .terminate;
     }
 
-    pub fn noop(_: *anyopaque) void {
-        return;
+    pub fn noop(_: *anyopaque) Action {
+        return .ok;
     }
 };
 
 pub fn init(state: *State) !Loop {
-    var mask = mem.zeroes(os.linux.sigset_t);
+    var mask = os.empty_sigset;
     os.linux.sigaddset(&mask, os.linux.SIG.INT);
     os.linux.sigaddset(&mask, os.linux.SIG.TERM);
     os.linux.sigaddset(&mask, os.linux.SIG.QUIT);
+
     _ = os.linux.sigprocmask(os.linux.SIG.BLOCK, &mask, null);
     const sfd = os.linux.signalfd(-1, &mask, os.linux.SFD.NONBLOCK);
 
@@ -38,6 +42,7 @@ pub fn init(state: *State) !Loop {
 
 pub fn run(self: *Loop) !void {
     const gpa = self.state.gpa;
+    const display = self.state.wayland.display;
 
     var events: std.MultiArrayList(Event) = .{};
     defer events.deinit(gpa);
@@ -55,8 +60,16 @@ pub fn run(self: *Loop) !void {
 
     const fds = events.items(.fd);
     while (true) {
-        self.state.wayland.flushAndPrepareRead();
-        _ = try os.poll(fds, -1);
+        while (true) {
+            const ret = display.dispatchPending();
+            _ = display.flush();
+            if (ret == .SUCCESS) break;
+        }
+
+        _ = os.poll(fds, -1) catch |err| {
+            log.err("poll failed: {s}", .{@errorName(err)});
+            return;
+        };
 
         for (fds) |fd, i| {
             if (fd.revents & os.POLL.HUP != 0) return;
@@ -64,11 +77,19 @@ pub fn run(self: *Loop) !void {
 
             if (fd.revents & os.POLL.IN != 0) {
                 const event = events.get(i);
-                event.callbackIn(event.data);
+                const action = event.callbackIn(event.data);
+                switch (action) {
+                    .ok => {},
+                    .terminate => return,
+                }
             }
             if (fd.revents & os.POLL.OUT != 0) {
                 const event = events.get(i);
-                event.callbackOut(event.data);
+                const action = event.callbackOut(event.data);
+                switch (action) {
+                    .ok => {},
+                    .terminate => return,
+                }
             }
         }
     }

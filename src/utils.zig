@@ -1,7 +1,14 @@
 const std = @import("std");
+const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
+const os = std.os;
 const unicode = std.unicode;
+
+pub fn fatal(comptime format: []const u8, args: anytype) noreturn {
+    log.err(format, args);
+    os.exit(1);
+}
 
 pub fn cast(comptime to: type) fn (*anyopaque) *to {
     return (struct {

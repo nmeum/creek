@@ -1,5 +1,6 @@
 const std = @import("std");
 const ArrayList = std.ArrayList;
+const log = std.log;
 
 const Event = @import("Loop.zig").Event;
 const State = @import("main.zig").State;
@@ -50,4 +51,5 @@ pub fn deinit(self: *Modules) void {
 pub fn register(self: *Modules, comptime ModuleType: type) !void {
     const instance = try ModuleType.create(self.state);
     try self.modules.append(try instance.module());
+    log.info("registered module: {s}", .{@typeName(ModuleType)});
 }

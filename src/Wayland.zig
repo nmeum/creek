@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
 const os = std.os;
@@ -19,7 +20,6 @@ const Wayland = @This();
 
 state: *State,
 display: *wl.Display,
-registry: *wl.Registry,
 
 monitors: ArrayList(*Monitor),
 inputs: ArrayList(*Input),
@@ -37,12 +37,13 @@ const Globals = struct {
 const GlobalsMask = utils.Mask(Globals);
 
 pub fn init(state: *State) !Wayland {
-    const display = try wl.Display.connect(null);
+    const display = wl.Display.connect(null) catch |err| {
+        utils.fatal("failed to connect to a wayland compositor: {s}", .{@errorName(err)});
+    };
 
     return Wayland{
         .state = state,
         .display = display,
-        .registry = try display.getRegistry(),
         .monitors = ArrayList(*Monitor).init(state.gpa),
         .inputs = ArrayList(*Input).init(state.gpa),
         .globals = undefined,
@@ -56,18 +57,27 @@ pub fn deinit(self: *Wayland) void {
 
     self.monitors.deinit();
     self.inputs.deinit();
+
+    inline for (@typeInfo(Globals).Struct.fields) |field| {
+        @field(self.globals, field.name).destroy();
+    }
+    self.display.disconnect();
 }
 
 pub fn registerGlobals(self: *Wayland) !void {
-    self.registry.setListener(*State, registryListener, self.state);
-    if (self.display.roundtrip() != .SUCCESS) {
-        std.log.err("failed roundtrip for initialization of globals", .{});
-        os.exit(1);
+    const registry = self.display.getRegistry() catch |err| {
+        utils.fatal("out of memory during initialization: {s}", .{@errorName(err)});
+    };
+    defer registry.destroy();
+
+    registry.setListener(*State, registryListener, self.state);
+    const errno = self.display.roundtrip();
+    if (errno != .SUCCESS) {
+        utils.fatal("initial roundtrip failed", .{});
     }
 
     for (self.globalsMask) |is_registered| if (!is_registered) {
-        std.log.err("missing global", .{});
-        os.exit(1);
+        utils.fatal("global not advertised", .{});
     };
 }
 
@@ -81,94 +91,58 @@ pub fn getEvent(self: *Wayland) !Event {
             .revents = undefined,
         },
         .data = @ptrCast(*anyopaque, self),
-        .callbackIn = read,
-        .callbackOut = Event.noop,
+        .callbackIn = dispatch,
+        .callbackOut = flush,
     };
 }
 
-pub fn flushAndPrepareRead(self: *Wayland) void {
-    while (!self.display.prepareRead()) {
-        const errno = self.display.dispatchPending();
-        if (errno != .SUCCESS) {
-            std.log.err("failed to dispatch pending wayland events", .{});
-            os.exit(1);
-        }
-    }
-
-    while (true) {
-        const errno = self.display.flush();
-        switch (errno) {
-            .SUCCESS => return,
-            .PIPE => {
-                _ = self.display.readEvents();
-                std.log.err("connection to wayland server unexpectedly terminated", .{});
-                os.exit(1);
-            },
-            .AGAIN => {
-                var wayland_out = [_]os.pollfd{.{
-                    .fd = self.display.getFd(),
-                    .events = os.POLL.OUT,
-                    .revents = undefined,
-                }};
-                _ = os.poll(&wayland_out, -1) catch {
-                    std.log.err("polling for wayland socket being writable failed", .{});
-                    os.exit(1);
-                };
-            },
-            else => {
-                std.log.err("failed to flush wayland requests", .{});
-                os.exit(1);
-            },
-        }
-    }
-}
-
-fn read(self_opaque: *anyopaque) void {
+fn dispatch(self_opaque: *anyopaque) Event.Action {
     const self = utils.cast(Wayland)(self_opaque);
-    const errno = self.display.readEvents();
-    if (errno != .SUCCESS) {
-        std.log.err("failed to read wayland events", .{});
-        os.exit(1);
+    const errno = self.display.dispatch();
+    switch (errno) {
+        .SUCCESS => return .ok,
+        else => return .terminate,
     }
 }
 
-fn registryListener(
-    registry: *wl.Registry,
-    event: wl.Registry.Event,
-    state: *State,
-) void {
-    const self = &state.wayland;
+fn flush(self_opaque: *anyopaque) Event.Action {
+    const self = utils.cast(Wayland)(self_opaque);
+    const errno = self.display.flush();
+    switch (errno) {
+        .SUCCESS => return .ok,
+        else => return .terminate,
+    }
+}
 
+fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, state: *State) void {
+    const self = &state.wayland;
     switch (event) {
         .global => |g| {
-            self.bindGlobal(registry, g.interface, g.name) catch return;
+            self.bindGlobal(registry, g.name, g.interface, g.version) catch |err| switch (err) {
+                error.OutOfMemory => {
+                    log.err("out of memory", .{});
+                    return;
+                },
+            };
         },
-        .global_remove => |data| {
-            for (self.monitors.items) |monitor, i| {
-                if (monitor.globalName == data.name) {
-                    monitor.destroy();
-                    _ = self.monitors.swapRemove(i);
-                    break;
-                }
-            }
-            for (self.inputs.items) |input, i| {
-                if (input.globalName == data.name) {
-                    input.destroy();
-                    _ = self.inputs.swapRemove(i);
-                    break;
-                }
-            }
+        .global_remove => |g| {
+            for (self.monitors.items) |monitor, i| if (monitor.globalName == g.name) {
+                monitor.destroy();
+                _ = self.monitors.swapRemove(i);
+                break;
+            };
+            for (self.inputs.items) |input, i| if (input.globalName == g.name) {
+                input.destroy();
+                _ = self.inputs.swapRemove(i);
+                break;
+            };
         },
     }
 }
 
-fn bindGlobal(
-    self: *Wayland,
-    registry: *wl.Registry,
-    iface: [*:0]const u8,
-    name: u32,
-) !void {
+fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]const u8, version: u32) !void {
     if (strcmp(iface, wl.Compositor.getInterface().name) == 0) {
+        if (version < 4) utils.fatal("wl_compositor version 4 is required", .{});
         const global = try registry.bind(name, wl.Compositor, 4);
         self.setGlobal(global);
     } else if (strcmp(iface, wl.Subcompositor.getInterface().name) == 0) {
@@ -187,9 +161,11 @@ fn bindGlobal(
         const global = try registry.bind(name, zriver.ControlV1, 1);
         self.setGlobal(global);
     } else if (strcmp(iface, wl.Output.getInterface().name) == 0) {
+        if (version < 3) utils.fatal("wl_output version 3 is required", .{});
         const monitor = try Monitor.create(self.state, registry, name);
         try self.monitors.append(monitor);
     } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
+        if (version < 5) utils.fatal("wl_seat version 5 is required", .{});
         const input = try Input.create(self.state, registry, name);
         try self.inputs.append(input);
     }

@@ -1,6 +1,7 @@
 const std = @import("std");
 const heap = std.heap;
 const io = std.io;
+const log = std.log;
 const mem = std.mem;
 const os = std.os;
 
@@ -28,7 +29,7 @@ pub fn main() anyerror!void {
 
     // cli arguments
     const params = comptime [_]clap.Param(clap.Help){
-        try clap.parseParam("-h, --help  Display this help and exit."),
+        try clap.parseParam("-h, --help             Display this help and exit."),
         try clap.parseParam("-m, --module <str>...  Add module."),
     };
     var args = try clap.parse(clap.Help, &params, .{});
@@ -56,13 +57,13 @@ pub fn main() anyerror!void {
         } else if (mem.eql(u8, module_name, "pulse")) {
             try state.modules.register(Modules.Pulse);
         } else {
-            std.log.err("unknown module: {s}", .{module_name});
-            os.exit(1);
+            log.err("unknown module: {s}", .{module_name});
+            return clap.help(io.getStdErr().writer(), &params);
         }
     }
 
     if (state.modules.modules.items.len == 0) {
-        std.log.err("having no module is currently not supported", .{});
+        log.err("having no modules is currently not supported", .{});
         return clap.help(io.getStdErr().writer(), &params);
     }
 

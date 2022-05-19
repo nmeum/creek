@@ -42,8 +42,6 @@ fn listener(_: *wl.Output, event: wl.Output.Event, monitor: *Monitor) void {
         },
         .geometry => {},
         .mode => {},
-        .name => {},
-        .description => {},
         .done => {
             if (monitor.bar) |_| {} else {
                 monitor.bar = Bar.create(monitor) catch return;

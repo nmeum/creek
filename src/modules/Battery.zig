@@ -1,5 +1,6 @@
 const std = @import("std");
 const fmt = std.fmt;
+const log = std.log;
 const mem = std.mem;
 const os = std.os;
 
@@ -107,11 +108,14 @@ pub fn destroy(self_opaque: *anyopaque) void {
     self.state.gpa.destroy(self);
 }
 
-fn callbackIn(self_opaque: *anyopaque) void {
+fn callbackIn(self_opaque: *anyopaque) Event.Action {
     const self = utils.cast(Battery)(self_opaque);
 
     var expirations = mem.zeroes([8]u8);
-    _ = os.read(self.timerFd, &expirations) catch return;
+    _ = os.read(self.timerFd, &expirations) catch |err| {
+        log.err("failed to read timer: {s}", .{@errorName(err)});
+        return .terminate;
+    };
 
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
@@ -124,6 +128,7 @@ fn callbackIn(self_opaque: *anyopaque) void {
             }
         }
     }
+    return .ok;
 }
 
 fn updateDevices(

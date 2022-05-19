@@ -20,7 +20,7 @@ pub fn init(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
     self.width = width;
     self.height = height;
 
-    const fd = try os.memfd_create("levee-wayland-shm-buffer-pool", 0);
+    const fd = try os.memfd_create("levee-shm", os.linux.MFD_CLOEXEC);
     defer os.close(fd);
 
     const stride = width * 4;
