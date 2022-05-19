@@ -69,7 +69,7 @@ pub fn renderClock(bar: *Bar) !void {
 
     // resterize
     const font = state.config.font;
-    const run = try fcft.TextRun.rasterizeUtf32(font, runes, .default);
+    const run = try font.rasterizeTextRunUtf32(runes, .default);
     defer run.destroy();
 
     // compute total width
@@ -132,7 +132,7 @@ pub fn renderModules(bar: *Bar) !void {
 
     // rasterize
     const font = state.config.font;
-    const run = try fcft.TextRun.rasterizeUtf32(font, runes, .default);
+    const run = try font.rasterizeTextRunUtf32(runes, .default);
     defer run.destroy();
 
     // compute total width
@@ -214,7 +214,7 @@ fn renderTag(
     };
     const font = state.config.font;
     var char = pixman.Image.createSolidFill(glyph_color).?;
-    const glyph = try fcft.Glyph.rasterizeUtf32(font, tag.label, .default);
+    const glyph = try font.rasterizeCharUtf32(tag.label, .default);
     const x = offset + @divFloor(size - glyph.width, 2);
     const y = @divFloor(size - glyph.height, 2);
     pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);

@@ -25,7 +25,7 @@ pub fn main() anyerror!void {
     var gpa: heap.GeneralPurposeAllocator(.{}) = .{};
     defer _ = gpa.deinit();
 
-    fcft.init(.auto, false, .warning);
+    _ = fcft.init(.auto, false, .warning);
 
     // cli arguments
     const params = comptime [_]clap.Param(clap.Help){
