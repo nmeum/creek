@@ -1,7 +1,7 @@
 
 # [levee]
 
-[![builds.sr.ht status](https://builds.sr.ht/~andreafeletto/levee/commits.svg)](https://builds.sr.ht/~andreafeletto/levee/commits)
+[![builds.sr.ht status](https://builds.sr.ht/~andreafeletto/levee/commits/main.svg)](https://builds.sr.ht/~andreafeletto/levee/commits/main)
 
 levee is a statusbar for the [river] wayland compositor, written in [zig]
 without any UI toolkit. It currently provides full support for workspace tags
