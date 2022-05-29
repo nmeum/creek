@@ -1,5 +1,6 @@
 image: archlinux
 packages:
+  - hut
   - zig
   - wayland
   - wayland-protocols
@@ -8,10 +9,16 @@ packages:
   - libpulse
 sources:
   - https://git.sr.ht/~andreafeletto/levee
+secrets:
+  - 8a791f75-2c57-4cd6-8cae-710da7d992cc
 tasks:
   - submodules: |
       cd levee
       git submodule update --init
+  - package: |
+      cd levee
+      ./contrib/package || exit 0
+      hut git artifact upload *.tar.gz
   - build: |
       cd levee
       zig build
