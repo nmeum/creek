@@ -7,7 +7,8 @@ const wl = @import("wayland").client.wl;
 
 const Buffer = @This();
 
-data: ?[]align(4096) u8,
+mmap: ?[]align(4096) u8,
+data: ?[]u32,
 buffer: ?*wl.Buffer,
 pix: ?*pixman.Image,
 busy: bool,
@@ -27,8 +28,8 @@ pub fn init(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
     self.size = stride * height;
     try os.ftruncate(fd, self.size);
 
-    self.data = try os.mmap(null, self.size, os.PROT.READ | os.PROT.WRITE, os.MAP.SHARED, fd, 0);
-    errdefer os.munmap(self.data.?);
+    self.mmap = try os.mmap(null, self.size, os.PROT.READ | os.PROT.WRITE, os.MAP.SHARED, fd, 0);
+    self.data = mem.bytesAsSlice(u32, self.mmap.?);
 
     const pool = try shm.createPool(fd, self.size);
     defer pool.destroy();
@@ -37,13 +38,13 @@ pub fn init(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
     errdefer self.buffer.?.destroy();
     self.buffer.?.setListener(*Buffer, listener, self);
 
-    self.pix = pixman.Image.createBitsNoClear(.a8r8g8b8, width, height, @ptrCast([*c]u32, self.data.?), stride);
+    self.pix = pixman.Image.createBitsNoClear(.a8r8g8b8, width, height, self.data.?.ptr, stride);
 }
 
 pub fn deinit(self: *Buffer) void {
     if (self.pix) |pix| _ = pix.unref();
     if (self.buffer) |buf| buf.destroy();
-    if (self.data) |data| os.munmap(data);
+    if (self.mmap) |mmap| os.munmap(mmap);
 }
 
 fn listener(_: *wl.Buffer, event: wl.Buffer.Event, buffer: *Buffer) void {
