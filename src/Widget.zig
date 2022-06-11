@@ -23,7 +23,7 @@ pub fn init(state: *State, background: *wl.Surface) !Widget {
     return Widget{
         .surface = surface,
         .subsurface = subsurface,
-        .buffers = mem.zeroes([2]Buffer),
+        .buffers = .{ .{}, .{} },
     };
 }
 

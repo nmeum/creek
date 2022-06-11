@@ -7,16 +7,17 @@ const wl = @import("wayland").client.wl;
 
 const Buffer = @This();
 
-mmap: ?[]align(4096) u8,
-data: ?[]u32,
-buffer: ?*wl.Buffer,
-pix: ?*pixman.Image,
-busy: bool,
-width: u31,
-height: u31,
-size: u31,
+mmap: ?[]align(4096) u8 = null,
+data: ?[]u32 = null,
+buffer: ?*wl.Buffer = null,
+pix: ?*pixman.Image = null,
 
-pub fn init(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
+busy: bool = false,
+width: u31 = 0,
+height: u31 = 0,
+size: u31 = 0,
+
+pub fn resize(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
     self.busy = true;
     self.width = width;
     self.height = height;
@@ -61,7 +62,7 @@ pub fn nextBuffer(pool: *[2]Buffer, shm: *wl.Shm, width: u16, height: u16) !*Buf
 
     if (buffer.width != width or buffer.height != height) {
         buffer.deinit();
-        try buffer.init(shm, width, height);
+        try buffer.resize(shm, width, height);
     }
     return buffer;
 }

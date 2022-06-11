@@ -7,6 +7,7 @@ const strcmp = std.cstr.cmp;
 const ArrayList = std.ArrayList;
 
 const wl = @import("wayland").client.wl;
+const wp = @import("wayland").client.wp;
 const zwlr = @import("wayland").client.zwlr;
 const zriver = @import("wayland").client.zriver;
 
@@ -30,6 +31,7 @@ const Globals = struct {
     compositor: *wl.Compositor,
     subcompositor: *wl.Subcompositor,
     shm: *wl.Shm,
+    viewporter: *wp.Viewporter,
     layerShell: *zwlr.LayerShellV1,
     statusManager: *zriver.StatusManagerV1,
     control: *zriver.ControlV1,
@@ -150,6 +152,9 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         self.setGlobal(global);
     } else if (strcmp(iface, wl.Shm.getInterface().name) == 0) {
         const global = try registry.bind(name, wl.Shm, 1);
+        self.setGlobal(global);
+    } else if (strcmp(iface, wp.Viewporter.getInterface().name) == 0) {
+        const global = try registry.bind(name, wp.Viewporter, 1);
         self.setGlobal(global);
     } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
         const global = try registry.bind(name, zwlr.LayerShellV1, 1);

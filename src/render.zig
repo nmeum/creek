@@ -13,25 +13,6 @@ const utils = @import("utils.zig");
 
 pub const RenderFn = fn (*Bar) anyerror!void;
 
-pub fn renderBackground(bar: *Bar) !void {
-    const state = bar.monitor.state;
-    const wlSurface = bar.background.surface;
-
-    const buffer = &bar.background.buffer;
-    if (buffer.width == bar.width and buffer.height == bar.height) return;
-    try buffer.init(state.wayland.globals.shm, bar.width, bar.height);
-
-    const area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = bar.width, .height = bar.height },
-    };
-    const color = &state.config.backgroundColor;
-    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, color, 1, &area);
-
-    wlSurface.setBufferScale(bar.monitor.scale);
-    wlSurface.damageBuffer(0, 0, bar.width, bar.height);
-    wlSurface.attach(buffer.buffer, 0, 0);
-}
-
 pub fn renderTags(bar: *Bar) !void {
     const state = bar.monitor.state;
     const surface = bar.tags.surface;

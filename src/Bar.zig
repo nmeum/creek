@@ -2,6 +2,7 @@ const std = @import("std");
 const mem = std.mem;
 
 const wl = @import("wayland").client.wl;
+const wp = @import("wayland").client.wp;
 const zwlr = @import("wayland").client.zwlr;
 
 const Buffer = @import("Buffer.zig");
@@ -15,6 +16,7 @@ monitor: *Monitor,
 layerSurface: *zwlr.LayerSurfaceV1,
 background: struct {
     surface: *wl.Surface,
+    viewport: *wp.Viewport,
     buffer: Buffer,
 },
 
@@ -35,13 +37,16 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.configured = false;
 
     self.background.surface = try globals.compositor.createSurface();
+    self.background.viewport = try globals.viewporter.getViewport(self.background.surface);
+    try self.background.buffer.resize(globals.shm, 1, 1);
+    if (self.background.buffer.data) |data| data[0] = 0xff000000 else unreachable;
+
     self.layerSurface = try globals.layerShell.getLayerSurface(
         self.background.surface,
         monitor.output,
         .top,
         "levee",
     );
-    self.background.buffer = mem.zeroes(Buffer);
 
     self.tags = try Widget.init(state, self.background.surface);
     self.clock = try Widget.init(state, self.background.surface);
@@ -91,7 +96,11 @@ fn layerSurfaceListener(
 
             layerSurface.ackConfigure(data.serial);
 
-            render.renderBackground(bar) catch return;
+            const bg = &bar.background;
+            bg.surface.attach(bg.buffer.buffer, 0, 0);
+            bg.surface.damageBuffer(0, 0, bar.width, bar.height);
+            bg.viewport.setDestination(bar.width, bar.height);
+
             render.renderTags(bar) catch return;
             render.renderClock(bar) catch return;
             render.renderModules(bar) catch return;
