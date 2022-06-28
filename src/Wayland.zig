@@ -60,8 +60,10 @@ pub fn deinit(self: *Wayland) void {
     self.monitors.deinit();
     self.inputs.deinit();
 
-    inline for (@typeInfo(Globals).Struct.fields) |field| {
-        @field(self.globals, field.name).destroy();
+    inline for (@typeInfo(Globals).Struct.fields) |field, i| {
+        if (self.globalsMask[i]) {
+            @field(self.globals, field.name).destroy();
+        }
     }
     self.display.disconnect();
 }
