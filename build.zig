@@ -31,10 +31,6 @@ pub fn build(b: *std.build.Builder) void {
     exe.step.dependOn(&scanner.step);
     scanner.addCSource(exe);
 
-    const clap = Pkg{
-        .name = "clap",
-        .path = .{ .path = "deps/zig-clap/clap.zig" },
-    };
     const wayland = Pkg{
         .name = "wayland",
         .path = .{ .generated = &scanner.result },
@@ -53,7 +49,6 @@ pub fn build(b: *std.build.Builder) void {
         .path = .{ .path = "deps/zig-udev/udev.zig" },
     };
 
-    exe.addPackage(clap);
     exe.addPackage(fcft);
     exe.addPackage(pixman);
     exe.addPackage(udev);

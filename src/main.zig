@@ -4,8 +4,8 @@ const io = std.io;
 const log = std.log;
 const mem = std.mem;
 const os = std.os;
+const process = std.process;
 
-const clap = @import("clap");
 const fcft = @import("fcft");
 
 const Config = @import("Config.zig");
@@ -27,17 +27,6 @@ pub fn main() anyerror!void {
 
     _ = fcft.init(.auto, false, .warning);
 
-    // cli arguments
-    const params = comptime [_]clap.Param(clap.Help){
-        try clap.parseParam("-h, --help             Display this help and exit."),
-        try clap.parseParam("-m, --module <str>...  Add module."),
-    };
-    var args = try clap.parse(clap.Help, &params, .{});
-    defer args.deinit();
-    if (args.flag("--help")) {
-        return clap.help(io.getStdErr().writer(), &params);
-    }
-
     // initialization
     var state: State = undefined;
     state.gpa = gpa.allocator();
@@ -49,25 +38,41 @@ pub fn main() anyerror!void {
     state.loop = try Loop.init(&state);
 
     // modules
-    for (args.options("--module")) |module_name| {
-        if (mem.eql(u8, module_name, "backlight")) {
+    var args = process.args();
+    const program_name = args.nextPosix() orelse unreachable;
+
+    while (args.nextPosix()) |arg| {
+        if (mem.eql(u8, arg, "backlight")) {
             try state.modules.register(Modules.Backlight);
-        } else if (mem.eql(u8, module_name, "battery")) {
+        } else if (mem.eql(u8, arg, "battery")) {
             try state.modules.register(Modules.Battery);
-        } else if (mem.eql(u8, module_name, "pulse")) {
+        } else if (mem.eql(u8, arg, "pulse")) {
             try state.modules.register(Modules.Pulse);
         } else {
-            log.err("unknown module: {s}", .{module_name});
-            return clap.help(io.getStdErr().writer(), &params);
+            try help(program_name);
+            return;
         }
     }
 
     if (state.modules.modules.items.len == 0) {
-        log.err("having no modules is currently not supported", .{});
-        return clap.help(io.getStdErr().writer(), &params);
+        try help(program_name);
+        return;
     }
 
     // event loop
     try state.wayland.registerGlobals();
     try state.loop.run();
+}
+
+fn help(program_name: []const u8) !void {
+    const help_text =
+        \\Usage: {s} [module]...
+        \\
+        \\Available modules:
+        \\    backlight   screen brightness
+        \\    battery     battery capacity
+        \\    pulse       speaker volume with pulseaudio
+        \\
+    ;
+    try io.getStdErr().writer().print(help_text, .{program_name});
 }

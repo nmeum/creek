@@ -7,9 +7,6 @@
 [submodule "deps/zig-udev"]
 	path = deps/zig-udev
 	url = https://git.sr.ht/~andreafeletto/zig-udev
-[submodule "deps/zig-clap"]
-	path = deps/zig-clap
-	url = https://github.com/Hejsil/zig-clap
 [submodule "deps/zig-fcft"]
 	path = deps/zig-fcft
 	url = https://git.sr.ht/~novakane/zig-fcft
