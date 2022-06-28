@@ -7,17 +7,12 @@ levee is a statusbar for the [river] wayland compositor, written in [zig]
 without any UI toolkit. It currently provides full support for workspace tags
 and displays pulseaudio volume, battery capacity and screen brightness.
 
-Some important things are not implemented yet:
-
-* configuration via config file
-* cpu module
-
 ## Build
 
 ```
 git clone --recurse-submodules https://git.sr.ht/~andreafeletto/levee
 cd levee
-zig build -Drelease-safe --prefix ~/.local install
+zig build --prefix ~/.local install
 ```
 
 ## Usage
@@ -25,7 +20,7 @@ zig build -Drelease-safe --prefix ~/.local install
 Add the following toward the end of `$XDG_CONFIG_HOME/river/init`:
 
 ```
-riverctl spawn levee -m pulse -m backlight -m battery
+riverctl spawn levee pulse backlight battery
 ```
 
 ## Dependencies
