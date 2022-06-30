@@ -10,24 +10,6 @@ const Loop = @This();
 state: *State,
 sfd: os.fd_t,
 
-pub const Event = struct {
-    fd: os.pollfd,
-    data: *anyopaque,
-    callbackIn: Callback,
-    callbackOut: Callback,
-
-    pub const Action = enum { ok, terminate };
-    pub const Callback = fn (*anyopaque) Action;
-
-    pub fn terminate(_: *anyopaque) Action {
-        return .terminate;
-    }
-
-    pub fn noop(_: *anyopaque) Action {
-        return .ok;
-    }
-};
-
 pub fn init(state: *State) !Loop {
     var mask = os.empty_sigset;
     os.linux.sigaddset(&mask, os.linux.SIG.INT);
@@ -41,56 +23,82 @@ pub fn init(state: *State) !Loop {
 }
 
 pub fn run(self: *Loop) !void {
-    const gpa = self.state.gpa;
-    const display = self.state.wayland.display;
+    const wayland = &self.state.wayland;
+    const modules = &self.state.modules;
 
-    var events: std.MultiArrayList(Event) = .{};
-    defer events.deinit(gpa);
+    var fds = [_]os.pollfd{
+        .{
+            .fd = self.sfd,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        },
+        .{
+            .fd = wayland.fd,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        },
+        .{
+            .fd = if (modules.backlight) |mod| mod.fd else -1,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        },
+        .{
+            .fd = if (modules.battery) |mod| mod.fd else -1,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        },
+        .{
+            .fd = if (modules.pulse) |mod| mod.fd else -1,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        },
+    };
 
-    try events.append(gpa, .{
-        .fd = .{ .fd = self.sfd, .events = os.POLL.IN, .revents = 0 },
-        .data = undefined,
-        .callbackIn = Event.terminate,
-        .callbackOut = Event.noop,
-    });
-    try events.append(gpa, try self.state.wayland.getEvent());
-    for (self.state.modules.modules.items) |*module| {
-        try events.append(gpa, try module.getEvent());
-    }
-
-    const fds = events.items(.fd);
     while (true) {
         while (true) {
-            const ret = display.dispatchPending();
-            _ = display.flush();
+            const ret = wayland.display.dispatchPending();
+            _ = wayland.display.flush();
             if (ret == .SUCCESS) break;
         }
 
-        _ = os.poll(fds, -1) catch |err| {
+        _ = os.poll(&fds, -1) catch |err| {
             log.err("poll failed: {s}", .{@errorName(err)});
             return;
         };
 
-        for (fds) |fd, i| {
-            if (fd.revents & os.POLL.HUP != 0) return;
-            if (fd.revents & os.POLL.ERR != 0) return;
-
-            if (fd.revents & os.POLL.IN != 0) {
-                const event = events.get(i);
-                const action = event.callbackIn(event.data);
-                switch (action) {
-                    .ok => {},
-                    .terminate => return,
-                }
-            }
-            if (fd.revents & os.POLL.OUT != 0) {
-                const event = events.get(i);
-                const action = event.callbackOut(event.data);
-                switch (action) {
-                    .ok => {},
-                    .terminate => return,
-                }
+        for (fds) |fd| {
+            if (fd.revents & os.POLL.HUP != 0 or fd.revents & os.POLL.ERR != 0) {
+                return;
             }
         }
+
+        // signals
+        if (fds[0].revents & os.POLL.IN != 0) {
+            return;
+        }
+
+        // wayland
+        if (fds[1].revents & os.POLL.IN != 0) {
+            const errno = wayland.display.dispatch();
+            if (errno != .SUCCESS) return;
+        }
+        if (fds[1].revents & os.POLL.OUT != 0) {
+            const errno = wayland.display.flush();
+            if (errno != .SUCCESS) return;
+        }
+
+        // modules
+        if (modules.backlight) |*mod| if (fds[2].revents & os.POLL.IN != 0) {
+            log.info("backlight", .{});
+            mod.refresh() catch return;
+        };
+        if (modules.battery) |*mod| if (fds[3].revents & os.POLL.IN != 0) {
+            log.info("battery", .{});
+            mod.refresh() catch return;
+        };
+        if (modules.pulse) |*mod| if (fds[4].revents & os.POLL.IN != 0) {
+            log.info("pulse", .{});
+            mod.refresh() catch return;
+        };
     }
 }

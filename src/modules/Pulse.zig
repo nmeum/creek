@@ -13,69 +13,66 @@ const utils = @import("../utils.zig");
 const Pulse = @This();
 
 state: *State,
+fd: os.fd_t,
 mainloop: *pulse.pa_threaded_mainloop,
 api: *pulse.pa_mainloop_api,
 context: *pulse.pa_context,
-fd: os.fd_t,
+// owned by pulse api
 sink_name: []const u8,
 sink_is_running: bool,
 volume: u8,
 muted: bool,
 
-pub fn create(state: *State) !*Pulse {
-    const self = try state.gpa.create(Pulse);
-    self.state = state;
-    self.volume = 0;
-    self.muted = false;
-    try self.initPulse();
-
+pub fn init(state: *State) !Pulse {
     // create descriptor for poll in Loop
-    const fd = try os.eventfd(0, os.linux.EFD.NONBLOCK);
-    self.fd = @intCast(os.fd_t, fd);
+    const efd = efd: {
+        const fd = try os.eventfd(0, os.linux.EFD.NONBLOCK);
+        break :efd @intCast(os.fd_t, fd);
+    };
 
-    return self;
-}
+    // setup pulseaudio api
+    const mainloop = pulse.pa_threaded_mainloop_new() orelse {
+        return error.InitFailed;
+    };
+    const api = pulse.pa_threaded_mainloop_get_api(mainloop);
+    const context = pulse.pa_context_new(api, "levee") orelse {
+        return error.InitFailed;
+    };
+    const connected = pulse.pa_context_connect(context, null, pulse.PA_CONTEXT_NOFAIL, null);
+    if (connected < 0) return error.InitFailed;
 
-pub fn module(self: *Pulse) !Module {
-    return Module{
-        .impl = @ptrCast(*anyopaque, self),
-        .funcs = .{
-            .getEvent = getEvent,
-            .print = print,
-            .destroy = destroy,
-        },
+    return Pulse{
+        .state = state,
+        .fd = efd,
+        .mainloop = mainloop,
+        .api = api,
+        .context = context,
+        .sink_name = "",
+        .sink_is_running = false,
+        .volume = 0,
+        .muted = false,
     };
 }
 
-fn getEvent(self_opaque: *anyopaque) !Event {
-    const self = utils.cast(Pulse)(self_opaque);
-
-    return Event{
-        .fd = .{ .fd = self.fd, .events = os.POLL.IN, .revents = undefined },
-        .data = self_opaque,
-        .callbackIn = callbackIn,
-        .callbackOut = Event.noop,
-    };
+pub fn deinit(self: *Pulse) void {
+    if (self.api.quit) |quit| quit(self.api, 0);
+    pulse.pa_threaded_mainloop_stop(self.mainloop);
+    pulse.pa_threaded_mainloop_free(self.mainloop);
 }
 
-fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
-    const self = utils.cast(Pulse)(self_opaque);
-
-    if (self.muted) {
-        try writer.print("   🔇   ", .{});
-    } else {
-        try writer.print("🔊   {d}%", .{self.volume});
-    }
+pub fn start(self: *Pulse) !void {
+    pulse.pa_context_set_state_callback(
+        self.context,
+        contextStateCallback,
+        @ptrCast(*anyopaque, self),
+    );
+    const started = pulse.pa_threaded_mainloop_start(self.mainloop);
+    if (started < 0) return error.StartFailed;
 }
 
-fn callbackIn(self_opaque: *anyopaque) Event.Action {
-    const self = utils.cast(Pulse)(self_opaque);
-
+pub fn refresh(self: *Pulse) !void {
     var data = mem.zeroes([8]u8);
-    _ = os.read(self.fd, &data) catch |err| {
-        log.err("pulse: failed to read: {s}", .{@errorName(err)});
-        return .terminate;
-    };
+    _ = try os.read(self.fd, &data);
 
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
@@ -88,44 +85,14 @@ fn callbackIn(self_opaque: *anyopaque) Event.Action {
             }
         }
     }
-    return .ok;
 }
 
-fn destroy(self_opaque: *anyopaque) void {
-    const self = utils.cast(Pulse)(self_opaque);
-
-    self.deinitPulse();
-    self.state.gpa.destroy(self);
-}
-
-fn initPulse(self: *Pulse) !void {
-    self.mainloop = pulse.pa_threaded_mainloop_new() orelse {
-        return error.InitFailed;
-    };
-    self.api = pulse.pa_threaded_mainloop_get_api(self.mainloop);
-    self.context = pulse.pa_context_new(self.api, "levee") orelse {
-        return error.InitFailed;
-    };
-    const connected = pulse.pa_context_connect(
-        self.context,
-        null,
-        pulse.PA_CONTEXT_NOFAIL,
-        null,
-    );
-    if (connected < 0) return error.InitFailed;
-    pulse.pa_context_set_state_callback(
-        self.context,
-        contextStateCallback,
-        @ptrCast(*anyopaque, self),
-    );
-    const started = pulse.pa_threaded_mainloop_start(self.mainloop);
-    if (started < 0) return error.InitFailed;
-}
-
-fn deinitPulse(self: *Pulse) void {
-    if (self.api.quit) |quit| quit(self.api, 0);
-    pulse.pa_threaded_mainloop_stop(self.mainloop);
-    pulse.pa_threaded_mainloop_free(self.mainloop);
+pub fn print(self: *Pulse, writer: anytype) !void {
+    if (self.muted) {
+        try writer.print("   🔇   ", .{});
+    } else {
+        try writer.print("🔊   {d}%", .{self.volume});
+    }
 }
 
 export fn contextStateCallback(
@@ -156,8 +123,8 @@ export fn contextStateCallback(
         },
         pulse.PA_CONTEXT_TERMINATED, pulse.PA_CONTEXT_FAILED => {
             log.info("pulse: restarting", .{});
-            self.deinitPulse();
-            self.initPulse() catch return;
+            self.deinit();
+            self.* = Pulse.init(self.state) catch return;
             log.info("pulse: restarted", .{});
         },
         else => {},

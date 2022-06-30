@@ -21,6 +21,7 @@ const Wayland = @This();
 
 state: *State,
 display: *wl.Display,
+fd: os.fd_t,
 
 monitors: ArrayList(*Monitor),
 inputs: ArrayList(*Input),
@@ -39,13 +40,16 @@ const Globals = struct {
 const GlobalsMask = utils.Mask(Globals);
 
 pub fn init(state: *State) !Wayland {
-    const display = wl.Display.connect(null) catch |err| {
-        utils.fatal("failed to connect to a wayland compositor: {s}", .{@errorName(err)});
+    const display = try wl.Display.connect(null);
+    const wfd = wfd: {
+        const fd = display.getFd();
+        break :wfd @intCast(os.fd_t, fd);
     };
 
     return Wayland{
         .state = state,
         .display = display,
+        .fd = wfd,
         .monitors = ArrayList(*Monitor).init(state.gpa),
         .inputs = ArrayList(*Input).init(state.gpa),
         .globals = undefined,
@@ -69,53 +73,33 @@ pub fn deinit(self: *Wayland) void {
 }
 
 pub fn registerGlobals(self: *Wayland) !void {
-    const registry = self.display.getRegistry() catch |err| {
-        utils.fatal("out of memory during initialization: {s}", .{@errorName(err)});
-    };
+    const registry = try self.display.getRegistry();
     defer registry.destroy();
 
     registry.setListener(*State, registryListener, self.state);
     const errno = self.display.roundtrip();
-    if (errno != .SUCCESS) {
-        utils.fatal("initial roundtrip failed", .{});
-    }
-
+    if (errno != .SUCCESS) return error.RoundtripFailed;
     for (self.globalsMask) |is_registered| if (!is_registered) {
-        utils.fatal("global not advertised", .{});
+        return error.GlobalNotAdvertized;
     };
 }
 
-pub fn getEvent(self: *Wayland) !Event {
-    const fd = self.display.getFd();
-
-    return Event{
-        .fd = .{
-            .fd = @intCast(os.fd_t, fd),
-            .events = os.POLL.IN,
-            .revents = undefined,
-        },
-        .data = @ptrCast(*anyopaque, self),
-        .callbackIn = dispatch,
-        .callbackOut = flush,
-    };
-}
-
-fn dispatch(self_opaque: *anyopaque) Event.Action {
-    const self = utils.cast(Wayland)(self_opaque);
-    const errno = self.display.dispatch();
-    switch (errno) {
-        .SUCCESS => return .ok,
-        else => return .terminate,
+pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
+    if (wlSurface == null) {
+        return null;
     }
-}
-
-fn flush(self_opaque: *anyopaque) Event.Action {
-    const self = utils.cast(Wayland)(self_opaque);
-    const errno = self.display.flush();
-    switch (errno) {
-        .SUCCESS => return .ok,
-        else => return .terminate,
+    for (self.monitors.items) |monitor| {
+        if (monitor.bar) |bar| {
+            if (bar.background.surface == wlSurface or
+                bar.tags.surface == wlSurface or
+                bar.clock.surface == wlSurface or
+                bar.modules.surface == wlSurface)
+            {
+                return bar;
+            }
+        }
     }
+    return null;
 }
 
 fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, state: *State) void {
@@ -146,7 +130,10 @@ fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, state: *St
 
 fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]const u8, version: u32) !void {
     if (strcmp(iface, wl.Compositor.getInterface().name) == 0) {
-        if (version < 4) utils.fatal("wl_compositor version 4 is required", .{});
+        if (version < 4) {
+            log.err("wl_compositor version 4 is required", .{});
+            return;
+        }
         const global = try registry.bind(name, wl.Compositor, 4);
         self.setGlobal(global);
     } else if (strcmp(iface, wl.Subcompositor.getInterface().name) == 0) {
@@ -168,17 +155,23 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         const global = try registry.bind(name, zriver.ControlV1, 1);
         self.setGlobal(global);
     } else if (strcmp(iface, wl.Output.getInterface().name) == 0) {
-        if (version < 3) utils.fatal("wl_output version 3 is required", .{});
+        if (version < 3) {
+            log.err("wl_output version 3 is required", .{});
+            return;
+        }
         const monitor = try Monitor.create(self.state, registry, name);
         try self.monitors.append(monitor);
     } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
-        if (version < 5) utils.fatal("wl_seat version 5 is required", .{});
+        if (version < 5) {
+            log.err("wl_seat version 5 is required", .{});
+            return;
+        }
         const input = try Input.create(self.state, registry, name);
         try self.inputs.append(input);
     }
 }
 
-pub fn setGlobal(self: *Wayland, global: anytype) void {
+fn setGlobal(self: *Wayland, global: anytype) void {
     inline for (meta.fields(Globals)) |field, i| {
         if (field.field_type == @TypeOf(global)) {
             @field(self.globals, field.name) = global;
@@ -186,22 +179,4 @@ pub fn setGlobal(self: *Wayland, global: anytype) void {
             break;
         }
     }
-}
-
-pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
-    if (wlSurface == null) {
-        return null;
-    }
-    for (self.monitors.items) |monitor| {
-        if (monitor.bar) |bar| {
-            if (bar.background.surface == wlSurface or
-                bar.tags.surface == wlSurface or
-                bar.clock.surface == wlSurface or
-                bar.modules.surface == wlSurface)
-            {
-                return bar;
-            }
-        }
-    }
-    return null;
 }

@@ -11,6 +11,10 @@ const Bar = @import("Bar.zig");
 const Tag = @import("Tags.zig").Tag;
 const utils = @import("utils.zig");
 
+const Backlight = @import("modules/Backlight.zig");
+const Battery = @import("modules/Battery.zig");
+const Pulse = @import("modules/Pulse.zig");
+
 pub const RenderFn = fn (*Bar) anyerror!void;
 
 pub fn renderTags(bar: *Bar) !void {
@@ -102,9 +106,13 @@ pub fn renderModules(bar: *Bar) !void {
     defer string.deinit();
 
     const writer = string.writer();
-    for (state.modules.modules.items) |*module| {
-        try std.fmt.format(writer, " | ", .{});
-        try module.print(writer);
+    for (state.modules.order.items) |tag| {
+        try writer.print(" | ", .{});
+        switch (tag) {
+            .backlight => try state.modules.backlight.?.print(writer),
+            .battery => try state.modules.battery.?.print(writer),
+            .pulse => try state.modules.pulse.?.print(writer),
+        }
     }
 
     // ut8 encoding

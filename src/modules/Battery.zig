@@ -15,7 +15,7 @@ const Battery = @This();
 
 state: *State,
 context: *udev.Udev,
-timerFd: os.fd_t,
+fd: os.fd_t,
 devices: DeviceList,
 
 const Device = struct {
@@ -26,11 +26,8 @@ const Device = struct {
 
 const DeviceList = std.ArrayList(Device);
 
-pub fn create(state: *State) !*Battery {
-    const self = try state.gpa.create(Battery);
-    self.state = state;
-
-    self.timerFd = tfd: {
+pub fn init(state: *State) !Battery {
+    const tfd = tfd: {
         const fd = os.linux.timerfd_create(
             os.CLOCK.MONOTONIC,
             os.linux.TFD.CLOEXEC,
@@ -43,44 +40,29 @@ pub fn create(state: *State) !*Battery {
         break :tfd @intCast(os.fd_t, fd);
     };
 
-    self.context = try udev.Udev.new();
+    const context = try udev.Udev.new();
 
-    self.devices = DeviceList.init(state.gpa);
-    try updateDevices(state.gpa, self.context, &self.devices);
-    if (self.devices.items.len == 0) return error.NoDevicesFound;
+    var devices = DeviceList.init(state.gpa);
+    try updateDevices(state.gpa, context, &devices);
 
-    return self;
-}
-
-pub fn module(self: *Battery) !Module {
-    return Module{
-        .impl = @ptrCast(*anyopaque, self),
-        .funcs = .{
-            .getEvent = getEvent,
-            .print = print,
-            .destroy = destroy,
-        },
+    return Battery{
+        .state = state,
+        .context = context,
+        .fd = tfd,
+        .devices = devices,
     };
 }
 
-pub fn getEvent(self_opaque: *anyopaque) !Event {
-    const self = utils.cast(Battery)(self_opaque);
-
-    return Event{
-        .fd = .{
-            .fd = self.timerFd,
-            .events = os.POLL.IN,
-            .revents = undefined,
-        },
-        .data = self_opaque,
-        .callbackIn = callbackIn,
-        .callbackOut = Event.noop,
-    };
+pub fn deinit(self: *Battery) void {
+    _ = self.context.unref();
+    for (self.devices.items) |*device| {
+        self.state.gpa.free(device.name);
+        self.state.gpa.free(device.status);
+    }
+    self.devices.deinit();
 }
 
-pub fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
-    const self = utils.cast(Battery)(self_opaque);
-
+pub fn print(self: *Battery, writer: anytype) !void {
     try updateDevices(self.state.gpa, self.context, &self.devices);
     const device = self.devices.items[0];
 
@@ -96,26 +78,9 @@ pub fn print(self_opaque: *anyopaque, writer: Module.StringWriter) !void {
     try fmt.format(writer, "{s}   {d}%", .{ icon, device.capacity });
 }
 
-pub fn destroy(self_opaque: *anyopaque) void {
-    const self = utils.cast(Battery)(self_opaque);
-
-    _ = self.context.unref();
-    for (self.devices.items) |*device| {
-        self.state.gpa.free(device.name);
-        self.state.gpa.free(device.status);
-    }
-    self.devices.deinit();
-    self.state.gpa.destroy(self);
-}
-
-fn callbackIn(self_opaque: *anyopaque) Event.Action {
-    const self = utils.cast(Battery)(self_opaque);
-
+pub fn refresh(self: *Battery) !void {
     var expirations = mem.zeroes([8]u8);
-    _ = os.read(self.timerFd, &expirations) catch |err| {
-        log.err("failed to read timer: {s}", .{@errorName(err)});
-        return .terminate;
-    };
+    _ = try os.read(self.fd, &expirations);
 
     for (self.state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
@@ -128,7 +93,6 @@ fn callbackIn(self_opaque: *anyopaque) Event.Action {
             }
         }
     }
-    return .ok;
 }
 
 fn updateDevices(

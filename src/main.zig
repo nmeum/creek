@@ -42,21 +42,24 @@ pub fn main() anyerror!void {
     const program_name = args.nextPosix() orelse unreachable;
 
     while (args.nextPosix()) |arg| {
-        if (mem.eql(u8, arg, "backlight")) {
-            try state.modules.register(Modules.Backlight);
-        } else if (mem.eql(u8, arg, "battery")) {
-            try state.modules.register(Modules.Battery);
-        } else if (mem.eql(u8, arg, "pulse")) {
-            try state.modules.register(Modules.Pulse);
-        } else {
-            try help(program_name);
+        if (mem.eql(u8, arg, "-h") or mem.eql(u8, arg, "--help")) {
+            help(program_name);
             return;
         }
-    }
-
-    if (state.modules.modules.items.len == 0) {
-        try help(program_name);
-        return;
+        state.modules.register(arg) catch |err| {
+            switch (err) {
+                error.UnknownModule => {
+                    log.err("unknown module: {s}", .{arg});
+                },
+                else => {
+                    log.err(
+                        "initialization error for module {s}: {s}",
+                        .{ arg, @errorName(err) },
+                    );
+                },
+            }
+            return;
+        };
     }
 
     // event loop
@@ -64,8 +67,8 @@ pub fn main() anyerror!void {
     try state.loop.run();
 }
 
-fn help(program_name: []const u8) !void {
-    const help_text =
+fn help(program_name: []const u8) void {
+    const text =
         \\Usage: {s} [module]...
         \\
         \\Available modules:
@@ -74,5 +77,6 @@ fn help(program_name: []const u8) !void {
         \\    pulse       speaker volume with pulseaudio
         \\
     ;
-    try io.getStdErr().writer().print(help_text, .{program_name});
+    const w = io.getStdErr().writer();
+    w.print(text, .{program_name}) catch unreachable;
 }
