@@ -20,7 +20,7 @@ zig build --prefix ~/.local install
 Add the following toward the end of `$XDG_CONFIG_HOME/river/init`:
 
 ```
-riverctl spawn levee pulse backlight battery
+riverctl spawn "levee pulse backlight battery"
 ```
 
 ## Dependencies
