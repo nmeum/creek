@@ -33,20 +33,20 @@ pub fn build(b: *std.build.Builder) void {
 
     const wayland = Pkg{
         .name = "wayland",
-        .path = .{ .generated = &scanner.result },
+        .source = .{ .generated = &scanner.result },
     };
     const pixman = Pkg{
         .name = "pixman",
-        .path = .{ .path = "deps/zig-pixman/pixman.zig" },
+        .source = .{ .path = "deps/zig-pixman/pixman.zig" },
     };
     const fcft = Pkg{
         .name = "fcft",
-        .path = .{ .path = "deps/zig-fcft/fcft.zig" },
+        .source = .{ .path = "deps/zig-fcft/fcft.zig" },
         .dependencies = &[_]Pkg{pixman},
     };
     const udev = Pkg{
         .name = "udev",
-        .path = .{ .path = "deps/zig-udev/udev.zig" },
+        .source = .{ .path = "deps/zig-udev/udev.zig" },
     };
 
     exe.addPackage(fcft);

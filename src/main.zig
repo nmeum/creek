@@ -39,9 +39,9 @@ pub fn main() anyerror!void {
 
     // modules
     var args = process.args();
-    const program_name = args.nextPosix() orelse unreachable;
+    const program_name = args.next() orelse unreachable;
 
-    while (args.nextPosix()) |arg| {
+    while (args.next()) |arg| {
         if (mem.eql(u8, arg, "-h") or mem.eql(u8, arg, "--help")) {
             help(program_name);
             return;

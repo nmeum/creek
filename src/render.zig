@@ -29,6 +29,7 @@ pub fn renderTags(bar: *Bar) !void {
         width,
         bar.height,
     );
+    if (buffer.buffer == null) return;
     buffer.busy = true;
 
     for (tags) |*tag, i| {
@@ -72,6 +73,7 @@ pub fn renderClock(bar: *Bar) !void {
 
     const buffers = &bar.clock.buffers;
     const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
+    if (buffer.buffer == null) return;
     buffer.busy = true;
 
     const bg_area = [_]pixman.Rectangle16{
@@ -139,6 +141,7 @@ pub fn renderModules(bar: *Bar) !void {
 
     const buffers = &bar.modules.buffers;
     const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
+    if (buffer.buffer == null) return;
     buffer.busy = true;
 
     const bg_area = [_]pixman.Rectangle16{

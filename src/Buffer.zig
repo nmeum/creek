@@ -18,11 +18,13 @@ height: u31 = 0,
 size: u31 = 0,
 
 pub fn resize(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
+    if (width == 0 or height == 0) return;
+
     self.busy = true;
     self.width = width;
     self.height = height;
 
-    const fd = try os.memfd_create("levee-shm", os.linux.MFD_CLOEXEC);
+    const fd = try os.memfd_create("levee-shm", os.linux.MFD.CLOEXEC);
     defer os.close(fd);
 
     const stride = width * 4;

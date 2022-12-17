@@ -1,7 +1,6 @@
 image: archlinux
 packages:
   - hut
-  - zig
   - wayland
   - wayland-protocols
   - fcft
@@ -12,6 +11,10 @@ sources:
 secrets:
   - 8a791f75-2c57-4cd6-8cae-710da7d992cc
 tasks:
+  - zig: |
+      curl -O https://ziglang.org/download/0.10.0/zig-linux-x86_64-0.10.0.tar.xz
+      tar xf zig-linux-x86_64-0.10.0.tar.xz
+      mv zig-linux-x86_64-0.10.0 zig
   - submodules: |
       cd levee
       git submodule update --init
@@ -21,4 +24,4 @@ tasks:
       hut git artifact upload *.tar.gz
   - build: |
       cd levee
-      zig build
+      ~/zig/zig build
