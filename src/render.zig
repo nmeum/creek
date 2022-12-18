@@ -22,13 +22,11 @@ pub fn renderTags(bar: *Bar) !void {
     const surface = bar.tags.surface;
     const tags = bar.monitor.tags.tags;
 
+    const buffers = &bar.tags.buffers;
+    const shm = state.wayland.shm.?;
+
     const width = bar.height * 9;
-    const buffer = try Buffer.nextBuffer(
-        &bar.tags.buffers,
-        state.wayland.globals.shm,
-        width,
-        bar.height,
-    );
+    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
     if (buffer.buffer == null) return;
     buffer.busy = true;
 
@@ -44,7 +42,7 @@ pub fn renderTags(bar: *Bar) !void {
 
 pub fn renderClock(bar: *Bar) !void {
     const surface = bar.clock.surface;
-    const shm = state.wayland.globals.shm;
+    const shm = state.wayland.shm.?;
 
     // utf8 datetime
     const str = try formatDatetime();
@@ -99,7 +97,7 @@ pub fn renderClock(bar: *Bar) !void {
 
 pub fn renderModules(bar: *Bar) !void {
     const surface = bar.modules.surface;
-    const shm = state.wayland.globals.shm;
+    const shm = state.wayland.shm.?;
 
     // compose string
     var string = std.ArrayList(u8).init(state.gpa);

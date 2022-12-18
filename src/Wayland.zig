@@ -23,21 +23,16 @@ const state = &@import("root").state;
 display: *wl.Display,
 fd: os.fd_t,
 
+compositor: ?*wl.Compositor = null,
+subcompositor: ?*wl.Subcompositor = null,
+shm: ?*wl.Shm = null,
+viewporter: ?*wp.Viewporter = null,
+layer_shell: ?*zwlr.LayerShellV1 = null,
+status_manager: ?*zriver.StatusManagerV1 = null,
+control: ?*zriver.ControlV1 = null,
+
 monitors: ArrayList(*Monitor),
 inputs: ArrayList(*Input),
-globals: Globals,
-globalsMask: GlobalsMask,
-
-const Globals = struct {
-    compositor: *wl.Compositor,
-    subcompositor: *wl.Subcompositor,
-    shm: *wl.Shm,
-    viewporter: *wp.Viewporter,
-    layerShell: *zwlr.LayerShellV1,
-    statusManager: *zriver.StatusManagerV1,
-    control: *zriver.ControlV1,
-};
-const GlobalsMask = utils.Mask(Globals);
 
 pub fn init() !Wayland {
     const display = try wl.Display.connect(null);
@@ -48,8 +43,6 @@ pub fn init() !Wayland {
         .fd = wfd,
         .monitors = ArrayList(*Monitor).init(state.gpa),
         .inputs = ArrayList(*Input).init(state.gpa),
-        .globals = undefined,
-        .globalsMask = mem.zeroes(GlobalsMask),
     };
 }
 
@@ -60,11 +53,14 @@ pub fn deinit(self: *Wayland) void {
     self.monitors.deinit();
     self.inputs.deinit();
 
-    inline for (@typeInfo(Globals).Struct.fields) |field, i| {
-        if (self.globalsMask[i]) {
-            @field(self.globals, field.name).destroy();
-        }
-    }
+    if (self.compositor) |global| global.destroy();
+    if (self.subcompositor) |global| global.destroy();
+    if (self.shm) |global| global.destroy();
+    if (self.viewporter) |global| global.destroy();
+    if (self.layer_shell) |global| global.destroy();
+    if (self.status_manager) |global| global.destroy();
+    if (self.control) |global| global.destroy();
+
     self.display.disconnect();
 }
 
@@ -75,9 +71,6 @@ pub fn registerGlobals(self: *Wayland) !void {
     registry.setListener(*Wayland, registryListener, self);
     const errno = self.display.roundtrip();
     if (errno != .SUCCESS) return error.RoundtripFailed;
-    for (self.globalsMask) |is_registered| if (!is_registered) {
-        return error.GlobalNotAdvertized;
-    };
 }
 
 pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
@@ -101,77 +94,45 @@ pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
 fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Wayland) void {
     switch (event) {
         .global => |g| {
-            self.bindGlobal(registry, g.name, g.interface, g.version) catch |err| switch (err) {
-                error.OutOfMemory => {
-                    log.err("out of memory", .{});
-                    return;
-                },
-            };
+            self.bindGlobal(registry, g.name, g.interface) catch unreachable;
         },
         .global_remove => |g| {
-            for (self.monitors.items) |monitor, i| if (monitor.globalName == g.name) {
-                monitor.destroy();
-                _ = self.monitors.swapRemove(i);
-                break;
-            };
-            for (self.inputs.items) |input, i| if (input.globalName == g.name) {
-                input.destroy();
-                _ = self.inputs.swapRemove(i);
-                break;
-            };
+            for (self.monitors.items) |monitor, i| {
+                if (monitor.globalName == g.name) {
+                    self.monitors.swapRemove(i).destroy();
+                    break;
+                }
+            }
+            for (self.inputs.items) |input, i| {
+                if (input.globalName == g.name) {
+                    self.inputs.swapRemove(i).destroy();
+                    break;
+                }
+            }
         },
     }
 }
 
-fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]const u8, version: u32) !void {
+fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]const u8) !void {
     if (strcmp(iface, wl.Compositor.getInterface().name) == 0) {
-        if (version < 4) {
-            log.err("wl_compositor version 4 is required", .{});
-            return;
-        }
-        const global = try registry.bind(name, wl.Compositor, 4);
-        self.setGlobal(global);
+        self.compositor = try registry.bind(name, wl.Compositor, 4);
     } else if (strcmp(iface, wl.Subcompositor.getInterface().name) == 0) {
-        const global = try registry.bind(name, wl.Subcompositor, 1);
-        self.setGlobal(global);
+        self.subcompositor = try registry.bind(name, wl.Subcompositor, 1);
     } else if (strcmp(iface, wl.Shm.getInterface().name) == 0) {
-        const global = try registry.bind(name, wl.Shm, 1);
-        self.setGlobal(global);
+        self.shm = try registry.bind(name, wl.Shm, 1);
     } else if (strcmp(iface, wp.Viewporter.getInterface().name) == 0) {
-        const global = try registry.bind(name, wp.Viewporter, 1);
-        self.setGlobal(global);
+        self.viewporter = try registry.bind(name, wp.Viewporter, 1);
     } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
-        const global = try registry.bind(name, zwlr.LayerShellV1, 1);
-        self.setGlobal(global);
+        self.layer_shell = try registry.bind(name, zwlr.LayerShellV1, 1);
     } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
-        const global = try registry.bind(name, zriver.StatusManagerV1, 1);
-        self.setGlobal(global);
+        self.status_manager = try registry.bind(name, zriver.StatusManagerV1, 1);
     } else if (strcmp(iface, zriver.ControlV1.getInterface().name) == 0) {
-        const global = try registry.bind(name, zriver.ControlV1, 1);
-        self.setGlobal(global);
+        self.control = try registry.bind(name, zriver.ControlV1, 1);
     } else if (strcmp(iface, wl.Output.getInterface().name) == 0) {
-        if (version < 3) {
-            log.err("wl_output version 3 is required", .{});
-            return;
-        }
         const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
     } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
-        if (version < 5) {
-            log.err("wl_seat version 5 is required", .{});
-            return;
-        }
         const input = try Input.create(registry, name);
         try self.inputs.append(input);
-    }
-}
-
-fn setGlobal(self: *Wayland, global: anytype) void {
-    inline for (meta.fields(Globals)) |field, i| {
-        if (field.field_type == @TypeOf(global)) {
-            @field(self.globals, field.name) = global;
-            self.globalsMask[i] = true;
-            break;
-        }
     }
 }

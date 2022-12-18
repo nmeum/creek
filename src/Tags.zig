@@ -10,7 +10,7 @@ const Tags = @This();
 const state = &@import("root").state;
 
 monitor: *Monitor,
-outputStatus: *zriver.OutputStatusV1,
+output_status: *zriver.OutputStatusV1,
 tags: [9]Tag,
 
 pub const Tag = struct {
@@ -21,22 +21,20 @@ pub const Tag = struct {
 
 pub fn create(monitor: *Monitor) !*Tags {
     const self = try state.gpa.create(Tags);
-    const globals = &state.wayland.globals;
+    const manager = state.wayland.status_manager.?;
 
     self.monitor = monitor;
-    self.outputStatus = try globals.statusManager.getRiverOutputStatus(
-        monitor.output,
-    );
+    self.output_status = try manager.getRiverOutputStatus(monitor.output);
     for (self.tags) |*tag, i| {
         tag.label = '1' + @intCast(u8, i);
     }
 
-    self.outputStatus.setListener(*Tags, outputStatusListener, self);
+    self.output_status.setListener(*Tags, outputStatusListener, self);
     return self;
 }
 
 pub fn destroy(self: *Tags) void {
-    self.outputStatus.destroy();
+    self.output_status.destroy();
     state.gpa.destroy(self);
 }
 
@@ -74,7 +72,7 @@ fn outputStatusListener(
 }
 
 pub fn handleClick(self: *Tags, x: u32, input: *Input) !void {
-    const control = state.wayland.globals.control;
+    const control = state.wayland.control.?;
 
     if (self.monitor.bar) |bar| {
         const index = x / bar.height;

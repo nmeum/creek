@@ -13,13 +13,11 @@ subsurface: *wl.Subsurface,
 buffers: [2]Buffer,
 
 pub fn init(background: *wl.Surface) !Widget {
-    const globals = &state.wayland.globals;
+    const compositor = state.wayland.compositor.?;
+    const subcompositor = state.wayland.subcompositor.?;
 
-    const surface = try globals.compositor.createSurface();
-    const subsurface = try globals.subcompositor.getSubsurface(
-        surface,
-        background,
-    );
+    const surface = try compositor.createSurface();
+    const subsurface = try subcompositor.getSubsurface(surface, background);
 
     return Widget{
         .surface = surface,

@@ -15,7 +15,7 @@ const state = &@import("root").state;
 
 monitor: *Monitor,
 
-layerSurface: *zwlr.LayerSurfaceV1,
+layer_surface: *zwlr.LayerSurfaceV1,
 background: struct {
     surface: *wl.Surface,
     viewport: *wp.Viewport,
@@ -31,18 +31,22 @@ width: u16,
 height: u16,
 
 pub fn create(monitor: *Monitor) !*Bar {
-    const globals = &state.wayland.globals;
-
     const self = try state.gpa.create(Bar);
     self.monitor = monitor;
     self.configured = false;
 
-    self.background.surface = try globals.compositor.createSurface();
-    self.background.viewport = try globals.viewporter.getViewport(self.background.surface);
-    try self.background.buffer.resize(globals.shm, 1, 1);
-    if (self.background.buffer.data) |data| data[0] = 0xff000000 else unreachable;
+    const compositor = state.wayland.compositor.?;
+    const viewporter = state.wayland.viewporter.?;
+    const shm = state.wayland.shm.?;
+    const layer_shell = state.wayland.layer_shell.?;
 
-    self.layerSurface = try globals.layerShell.getLayerSurface(
+    self.background.surface = try compositor.createSurface();
+    self.background.viewport = try viewporter.getViewport(self.background.surface);
+
+    try self.background.buffer.resize(shm, 1, 1);
+    self.background.buffer.data.?[0] = 0xff000000;
+
+    self.layer_surface = try layer_shell.getLayerSurface(
         self.background.surface,
         monitor.output,
         .top,
@@ -54,13 +58,13 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.modules = try Widget.init(self.background.surface);
 
     // setup layer surface
-    self.layerSurface.setSize(0, state.config.height);
-    self.layerSurface.setAnchor(
+    self.layer_surface.setSize(0, state.config.height);
+    self.layer_surface.setAnchor(
         .{ .top = true, .left = true, .right = true, .bottom = false },
     );
-    self.layerSurface.setExclusiveZone(state.config.height);
-    self.layerSurface.setMargin(0, 0, 0, 0);
-    self.layerSurface.setListener(*Bar, layerSurfaceListener, self);
+    self.layer_surface.setExclusiveZone(state.config.height);
+    self.layer_surface.setMargin(0, 0, 0, 0);
+    self.layer_surface.setListener(*Bar, layerSurfaceListener, self);
 
     self.tags.surface.commit();
     self.clock.surface.commit();
@@ -74,7 +78,7 @@ pub fn destroy(self: *Bar) void {
     self.monitor.bar = null;
 
     self.background.surface.destroy();
-    self.layerSurface.destroy();
+    self.layer_surface.destroy();
     self.background.buffer.deinit();
 
     self.tags.deinit();
