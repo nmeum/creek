@@ -3,14 +3,14 @@ const log = std.log;
 const mem = std.mem;
 const os = std.os;
 
-const State = @import("main.zig").State;
 const utils = @import("utils.zig");
 const Loop = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 sfd: os.fd_t,
 
-pub fn init(state: *State) !Loop {
+pub fn init() !Loop {
     var mask = os.empty_sigset;
     os.linux.sigaddset(&mask, os.linux.SIG.INT);
     os.linux.sigaddset(&mask, os.linux.SIG.TERM);
@@ -19,12 +19,12 @@ pub fn init(state: *State) !Loop {
     _ = os.linux.sigprocmask(os.linux.SIG.BLOCK, &mask, null);
     const sfd = os.linux.signalfd(-1, &mask, os.linux.SFD.NONBLOCK);
 
-    return Loop{ .state = state, .sfd = @intCast(os.fd_t, sfd) };
+    return Loop{ .sfd = @intCast(os.fd_t, sfd) };
 }
 
 pub fn run(self: *Loop) !void {
-    const wayland = &self.state.wayland;
-    const modules = &self.state.modules;
+    const wayland = &state.wayland;
+    const modules = &state.modules;
 
     var fds = [_]os.pollfd{
         .{

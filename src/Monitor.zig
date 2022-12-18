@@ -1,11 +1,11 @@
 const wl = @import("wayland").client.wl;
 
-const State = @import("main.zig").State;
 const Bar = @import("Bar.zig");
 const Tags = @import("Tags.zig");
 const Monitor = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 output: *wl.Output,
 globalName: u32,
 scale: i32,
@@ -13,15 +13,14 @@ scale: i32,
 bar: ?*Bar,
 tags: *Tags,
 
-pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Monitor {
+pub fn create(registry: *wl.Registry, name: u32) !*Monitor {
     const self = try state.gpa.create(Monitor);
-    self.state = state;
     self.output = try registry.bind(name, wl.Output, 4);
     self.globalName = name;
     self.scale = 1;
 
     self.bar = null;
-    self.tags = try Tags.create(state, self);
+    self.tags = try Tags.create(self);
 
     self.output.setListener(*Monitor, listener, self);
     return self;
@@ -32,7 +31,7 @@ pub fn destroy(self: *Monitor) void {
         bar.destroy();
     }
     self.tags.destroy();
-    self.state.gpa.destroy(self);
+    state.gpa.destroy(self);
 }
 
 fn listener(_: *wl.Output, event: wl.Output.Event, monitor: *Monitor) void {

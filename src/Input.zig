@@ -1,10 +1,10 @@
 const wl = @import("wayland").client.wl;
 
-const State = @import("main.zig").State;
 const Bar = @import("Bar.zig");
 const Input = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 seat: *wl.Seat,
 globalName: u32,
 
@@ -16,9 +16,8 @@ pointer: struct {
     surface: ?*wl.Surface,
 },
 
-pub fn create(state: *State, registry: *wl.Registry, name: u32) !*Input {
+pub fn create(registry: *wl.Registry, name: u32) !*Input {
     const self = try state.gpa.create(Input);
-    self.state = state;
     self.seat = try registry.bind(name, wl.Seat, 7);
     self.globalName = name;
 
@@ -35,7 +34,7 @@ pub fn destroy(self: *Input) void {
         pointer.release();
     }
     self.seat.release();
-    self.state.gpa.destroy(self);
+    state.gpa.destroy(self);
 }
 
 fn listener(seat: *wl.Seat, event: wl.Seat.Event, input: *Input) void {
@@ -67,7 +66,7 @@ fn pointerListener(
         .enter => |data| {
             input.pointer.x = data.surface_x.toInt();
             input.pointer.y = data.surface_y.toInt();
-            const bar = input.state.wayland.findBar(data.surface);
+            const bar = state.wayland.findBar(data.surface);
             input.pointer.bar = bar;
             input.pointer.surface = data.surface;
         },

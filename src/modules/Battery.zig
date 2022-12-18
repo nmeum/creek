@@ -9,11 +9,11 @@ const udev = @import("udev");
 const Module = @import("../Modules.zig").Module;
 const Event = @import("../Loop.zig").Event;
 const render = @import("../render.zig");
-const State = @import("../main.zig").State;
 const utils = @import("../utils.zig");
 const Battery = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 context: *udev.Udev,
 fd: os.fd_t,
 devices: DeviceList,
@@ -26,7 +26,7 @@ const Device = struct {
 
 const DeviceList = std.ArrayList(Device);
 
-pub fn init(state: *State) !Battery {
+pub fn init() !Battery {
     const tfd = tfd: {
         const fd = os.linux.timerfd_create(
             os.CLOCK.MONOTONIC,
@@ -46,7 +46,6 @@ pub fn init(state: *State) !Battery {
     try updateDevices(state.gpa, context, &devices);
 
     return Battery{
-        .state = state,
         .context = context,
         .fd = tfd,
         .devices = devices,
@@ -56,14 +55,14 @@ pub fn init(state: *State) !Battery {
 pub fn deinit(self: *Battery) void {
     _ = self.context.unref();
     for (self.devices.items) |*device| {
-        self.state.gpa.free(device.name);
-        self.state.gpa.free(device.status);
+        state.gpa.free(device.name);
+        state.gpa.free(device.status);
     }
     self.devices.deinit();
 }
 
 pub fn print(self: *Battery, writer: anytype) !void {
-    try updateDevices(self.state.gpa, self.context, &self.devices);
+    try updateDevices(state.gpa, self.context, &self.devices);
     const device = self.devices.items[0];
 
     var icon: []const u8 = "❓";
@@ -82,7 +81,7 @@ pub fn refresh(self: *Battery) !void {
     var expirations = mem.zeroes([8]u8);
     _ = try os.read(self.fd, &expirations);
 
-    for (self.state.wayland.monitors.items) |monitor| {
+    for (state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.configured) {
                 render.renderClock(bar) catch continue;

@@ -7,11 +7,11 @@ const os = std.os;
 const udev = @import("udev");
 
 const render = @import("../render.zig");
-const State = @import("../main.zig").State;
 const utils = @import("../utils.zig");
 const Backlight = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 context: *udev.Udev,
 monitor: *udev.Monitor,
 fd: os.fd_t,
@@ -25,7 +25,7 @@ const Device = struct {
 
 const DeviceList = std.ArrayList(Device);
 
-pub fn init(state: *State) !Backlight {
+pub fn init() !Backlight {
     const context = try udev.Udev.new();
 
     const monitor = try udev.Monitor.newFromNetlink(context, "udev");
@@ -37,7 +37,6 @@ pub fn init(state: *State) !Backlight {
     try updateDevices(state.gpa, context, &devices);
 
     return Backlight{
-        .state = state,
         .context = context,
         .monitor = monitor,
         .fd = try monitor.getFd(),
@@ -48,7 +47,7 @@ pub fn init(state: *State) !Backlight {
 pub fn deinit(self: *Backlight) void {
     _ = self.context.unref();
     for (self.devices.items) |*device| {
-        self.state.gpa.free(device.name);
+        state.gpa.free(device.name);
     }
     self.devices.deinit();
 }
@@ -56,7 +55,7 @@ pub fn deinit(self: *Backlight) void {
 pub fn refresh(self: *Backlight) !void {
     _ = try self.monitor.receiveDevice();
 
-    for (self.state.wayland.monitors.items) |monitor| {
+    for (state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.configured) {
                 render.renderModules(bar) catch continue;
@@ -68,7 +67,7 @@ pub fn refresh(self: *Backlight) !void {
 }
 
 pub fn print(self: *Backlight, writer: anytype) !void {
-    try updateDevices(self.state.gpa, self.context, &self.devices);
+    try updateDevices(state.gpa, self.context, &self.devices);
     const device = self.devices.items[0];
     var percent = @intToFloat(f64, device.value) * 100.0;
     percent /= @intToFloat(f64, device.max);

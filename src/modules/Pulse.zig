@@ -8,11 +8,11 @@ const pulse = @cImport(@cInclude("pulse/pulseaudio.h"));
 const Module = @import("../Modules.zig").Module;
 const Event = @import("../Loop.zig").Event;
 const render = @import("../render.zig");
-const State = @import("../main.zig").State;
 const utils = @import("../utils.zig");
 const Pulse = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 fd: os.fd_t,
 mainloop: *pulse.pa_threaded_mainloop,
 api: *pulse.pa_mainloop_api,
@@ -23,7 +23,7 @@ sink_is_running: bool,
 volume: u8,
 muted: bool,
 
-pub fn init(state: *State) !Pulse {
+pub fn init() !Pulse {
     // create descriptor for poll in Loop
     const efd = efd: {
         const fd = try os.eventfd(0, os.linux.EFD.NONBLOCK);
@@ -42,7 +42,6 @@ pub fn init(state: *State) !Pulse {
     if (connected < 0) return error.InitFailed;
 
     return Pulse{
-        .state = state,
         .fd = efd,
         .mainloop = mainloop,
         .api = api,
@@ -74,7 +73,7 @@ pub fn refresh(self: *Pulse) !void {
     var data = mem.zeroes([8]u8);
     _ = try os.read(self.fd, &data);
 
-    for (self.state.wayland.monitors.items) |monitor| {
+    for (state.wayland.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.configured) {
                 render.renderClock(bar) catch continue;
@@ -124,7 +123,7 @@ export fn contextStateCallback(
         pulse.PA_CONTEXT_TERMINATED, pulse.PA_CONTEXT_FAILED => {
             log.info("pulse: restarting", .{});
             self.deinit();
-            self.* = Pulse.init(self.state) catch return;
+            self.* = Pulse.init() catch return;
             log.info("pulse: restarted", .{});
         },
         else => {},

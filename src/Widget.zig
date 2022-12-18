@@ -4,14 +4,15 @@ const mem = std.mem;
 const wl = @import("wayland").client.wl;
 
 const Buffer = @import("Buffer.zig");
-const State = @import("main.zig").State;
 const Widget = @This();
+
+const state = &@import("root").state;
 
 surface: *wl.Surface,
 subsurface: *wl.Subsurface,
 buffers: [2]Buffer,
 
-pub fn init(state: *State, background: *wl.Surface) !Widget {
+pub fn init(background: *wl.Surface) !Widget {
     const globals = &state.wayland.globals;
 
     const surface = try globals.compositor.createSurface();

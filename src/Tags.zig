@@ -5,8 +5,9 @@ const zriver = @import("wayland").client.zriver;
 const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
 const Input = @import("Input.zig");
-const State = @import("main.zig").State;
 const Tags = @This();
+
+const state = &@import("root").state;
 
 monitor: *Monitor,
 outputStatus: *zriver.OutputStatusV1,
@@ -18,7 +19,7 @@ pub const Tag = struct {
     occupied: bool = false,
 };
 
-pub fn create(state: *State, monitor: *Monitor) !*Tags {
+pub fn create(monitor: *Monitor) !*Tags {
     const self = try state.gpa.create(Tags);
     const globals = &state.wayland.globals;
 
@@ -36,7 +37,7 @@ pub fn create(state: *State, monitor: *Monitor) !*Tags {
 
 pub fn destroy(self: *Tags) void {
     self.outputStatus.destroy();
-    self.monitor.state.gpa.destroy(self);
+    state.gpa.destroy(self);
 }
 
 fn outputStatusListener(
@@ -73,7 +74,6 @@ fn outputStatusListener(
 }
 
 pub fn handleClick(self: *Tags, x: u32, input: *Input) !void {
-    const state = self.monitor.state;
     const control = state.wayland.globals.control;
 
     if (self.monitor.bar) |bar| {

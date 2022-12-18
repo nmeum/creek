@@ -11,6 +11,8 @@ const render = @import("render.zig");
 const Widget = @import("Widget.zig");
 const Bar = @This();
 
+const state = &@import("root").state;
+
 monitor: *Monitor,
 
 layerSurface: *zwlr.LayerSurfaceV1,
@@ -29,7 +31,6 @@ width: u16,
 height: u16,
 
 pub fn create(monitor: *Monitor) !*Bar {
-    const state = monitor.state;
     const globals = &state.wayland.globals;
 
     const self = try state.gpa.create(Bar);
@@ -48,9 +49,9 @@ pub fn create(monitor: *Monitor) !*Bar {
         "levee",
     );
 
-    self.tags = try Widget.init(state, self.background.surface);
-    self.clock = try Widget.init(state, self.background.surface);
-    self.modules = try Widget.init(state, self.background.surface);
+    self.tags = try Widget.init(self.background.surface);
+    self.clock = try Widget.init(self.background.surface);
+    self.modules = try Widget.init(self.background.surface);
 
     // setup layer surface
     self.layerSurface.setSize(0, state.config.height);
@@ -80,7 +81,7 @@ pub fn destroy(self: *Bar) void {
     self.clock.deinit();
     self.modules.deinit();
 
-    self.monitor.state.gpa.destroy(self);
+    state.gpa.destroy(self);
 }
 
 fn layerSurfaceListener(

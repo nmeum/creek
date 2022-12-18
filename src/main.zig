@@ -21,6 +21,8 @@ pub const State = struct {
     loop: Loop,
 };
 
+pub var state: State = undefined;
+
 pub fn main() anyerror!void {
     var gpa: heap.GeneralPurposeAllocator(.{}) = .{};
     defer _ = gpa.deinit();
@@ -28,14 +30,16 @@ pub fn main() anyerror!void {
     _ = fcft.init(.auto, false, .warning);
 
     // initialization
-    var state: State = undefined;
     state.gpa = gpa.allocator();
     state.config = try Config.init();
-    state.wayland = try Wayland.init(&state);
-    defer state.wayland.deinit();
-    state.modules = Modules.init(&state);
-    defer state.modules.deinit();
-    state.loop = try Loop.init(&state);
+    state.wayland = try Wayland.init();
+    state.modules = Modules.init();
+    state.loop = try Loop.init();
+
+    defer {
+        state.wayland.deinit();
+        state.modules.deinit();
+    }
 
     // modules
     var args = process.args();

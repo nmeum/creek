@@ -15,11 +15,11 @@ const Bar = @import("Bar.zig");
 const Event = @import("Loop.zig").Event;
 const Input = @import("Input.zig");
 const Monitor = @import("Monitor.zig");
-const State = @import("main.zig").State;
 const utils = @import("utils.zig");
 const Wayland = @This();
 
-state: *State,
+const state = &@import("root").state;
+
 display: *wl.Display,
 fd: os.fd_t,
 
@@ -39,15 +39,11 @@ const Globals = struct {
 };
 const GlobalsMask = utils.Mask(Globals);
 
-pub fn init(state: *State) !Wayland {
+pub fn init() !Wayland {
     const display = try wl.Display.connect(null);
-    const wfd = wfd: {
-        const fd = display.getFd();
-        break :wfd @intCast(os.fd_t, fd);
-    };
+    const wfd = @intCast(os.fd_t, display.getFd());
 
     return Wayland{
-        .state = state,
         .display = display,
         .fd = wfd,
         .monitors = ArrayList(*Monitor).init(state.gpa),
@@ -76,7 +72,7 @@ pub fn registerGlobals(self: *Wayland) !void {
     const registry = try self.display.getRegistry();
     defer registry.destroy();
 
-    registry.setListener(*State, registryListener, self.state);
+    registry.setListener(*Wayland, registryListener, self);
     const errno = self.display.roundtrip();
     if (errno != .SUCCESS) return error.RoundtripFailed;
     for (self.globalsMask) |is_registered| if (!is_registered) {
@@ -102,8 +98,7 @@ pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
     return null;
 }
 
-fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, state: *State) void {
-    const self = &state.wayland;
+fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Wayland) void {
     switch (event) {
         .global => |g| {
             self.bindGlobal(registry, g.name, g.interface, g.version) catch |err| switch (err) {
@@ -159,14 +154,14 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
             log.err("wl_output version 3 is required", .{});
             return;
         }
-        const monitor = try Monitor.create(self.state, registry, name);
+        const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
     } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
         if (version < 5) {
             log.err("wl_seat version 5 is required", .{});
             return;
         }
-        const input = try Input.create(self.state, registry, name);
+        const input = try Input.create(registry, name);
         try self.inputs.append(input);
     }
 }

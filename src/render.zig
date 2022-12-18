@@ -6,7 +6,6 @@ const pixman = @import("pixman");
 const time = @cImport(@cInclude("time.h"));
 
 const Buffer = @import("Buffer.zig");
-const State = @import("main.zig").State;
 const Bar = @import("Bar.zig");
 const Tag = @import("Tags.zig").Tag;
 const utils = @import("utils.zig");
@@ -15,17 +14,18 @@ const Backlight = @import("modules/Backlight.zig");
 const Battery = @import("modules/Battery.zig");
 const Pulse = @import("modules/Pulse.zig");
 
+const state = &@import("root").state;
+
 pub const RenderFn = fn (*Bar) anyerror!void;
 
 pub fn renderTags(bar: *Bar) !void {
-    const state = bar.monitor.state;
     const surface = bar.tags.surface;
     const tags = bar.monitor.tags.tags;
 
     const width = bar.height * 9;
     const buffer = try Buffer.nextBuffer(
         &bar.tags.buffers,
-        bar.monitor.state.wayland.globals.shm,
+        state.wayland.globals.shm,
         width,
         bar.height,
     );
@@ -34,7 +34,7 @@ pub fn renderTags(bar: *Bar) !void {
 
     for (tags) |*tag, i| {
         const offset = @intCast(i16, bar.height * i);
-        try renderTag(buffer.pix.?, tag, bar.height, offset, state);
+        try renderTag(buffer.pix.?, tag, bar.height, offset);
     }
 
     surface.setBufferScale(bar.monitor.scale);
@@ -43,12 +43,11 @@ pub fn renderTags(bar: *Bar) !void {
 }
 
 pub fn renderClock(bar: *Bar) !void {
-    const state = bar.monitor.state;
     const surface = bar.clock.surface;
     const shm = state.wayland.globals.shm;
 
     // utf8 datetime
-    const str = try formatDatetime(state);
+    const str = try formatDatetime();
     defer state.gpa.free(str);
     const runes = try utils.toUtf8(state.gpa, str);
     defer state.gpa.free(runes);
@@ -99,7 +98,6 @@ pub fn renderClock(bar: *Bar) !void {
 }
 
 pub fn renderModules(bar: *Bar) !void {
-    const state = bar.monitor.state;
     const surface = bar.modules.surface;
     const shm = state.wayland.globals.shm;
 
@@ -171,7 +169,6 @@ fn renderTag(
     tag: *const Tag,
     height: u16,
     offset: i16,
-    state: *State,
 ) !void {
     const size = @intCast(u16, height);
 
@@ -212,7 +209,7 @@ fn renderTag(
     pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
 }
 
-fn formatDatetime(state: *State) ![]const u8 {
+fn formatDatetime() ![]const u8 {
     var buf = try state.gpa.alloc(u8, 256);
     const now = time.time(null);
     const local = time.localtime(&now);
