@@ -25,11 +25,11 @@ riverctl spawn "levee pulse backlight battery"
 
 ## Dependencies
 
-* [zig] 0.9.0
-* [wayland] 1.20.0
-* [pixman] 0.40.0
-* [fcft] 3.0.1
-* [libpulse] 15.0
+* [zig] 0.10.0
+* [wayland] 1.21.0
+* [pixman] 0.42.0
+* [fcft] 3.1.5
+* [libpulse] 16.0
 
 ## Contributing
 
