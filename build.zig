@@ -14,6 +14,7 @@ pub fn build(b: *std.build.Builder) void {
     const scanner = ScanProtocolsStep.create(b);
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addSystemProtocol("stable/viewporter/viewporter.xml");
+    scanner.addSystemProtocol("staging/single-pixel-buffer/single-pixel-buffer-v1.xml");
     scanner.addProtocolPath("protocol/wlr-layer-shell-unstable-v1.xml");
     scanner.addProtocolPath("protocol/river-status-unstable-v1.xml");
     scanner.addProtocolPath("protocol/river-control-unstable-v1.xml");
@@ -23,6 +24,7 @@ pub fn build(b: *std.build.Builder) void {
     scanner.generate("wl_shm", 1);
     scanner.generate("wl_output", 3);
     scanner.generate("wl_seat", 5);
+    scanner.generate("wp_single_pixel_buffer_manager_v1", 1);
     scanner.generate("wp_viewporter", 1);
     scanner.generate("zwlr_layer_shell_v1", 1);
     scanner.generate("zriver_status_manager_v1", 1);

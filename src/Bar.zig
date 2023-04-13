@@ -19,7 +19,7 @@ layer_surface: *zwlr.LayerSurfaceV1,
 background: struct {
     surface: *wl.Surface,
     viewport: *wp.Viewport,
-    buffer: Buffer,
+    buffer: *wl.Buffer,
 },
 
 tags: Widget,
@@ -37,21 +37,14 @@ pub fn create(monitor: *Monitor) !*Bar {
 
     const compositor = state.wayland.compositor.?;
     const viewporter = state.wayland.viewporter.?;
-    const shm = state.wayland.shm.?;
+    const spb_manager = state.wayland.single_pixel_buffer_manager.?;
     const layer_shell = state.wayland.layer_shell.?;
 
     self.background.surface = try compositor.createSurface();
     self.background.viewport = try viewporter.getViewport(self.background.surface);
+    self.background.buffer = try spb_manager.createU32RgbaBuffer(0, 0, 0, 0xffffffff);
 
-    try self.background.buffer.resize(shm, 1, 1);
-    self.background.buffer.data.?[0] = 0xff000000;
-
-    self.layer_surface = try layer_shell.getLayerSurface(
-        self.background.surface,
-        monitor.output,
-        .top,
-        "levee",
-    );
+    self.layer_surface = try layer_shell.getLayerSurface(self.background.surface, monitor.output, .top, "levee");
 
     self.tags = try Widget.init(self.background.surface);
     self.clock = try Widget.init(self.background.surface);
@@ -76,10 +69,11 @@ pub fn create(monitor: *Monitor) !*Bar {
 
 pub fn destroy(self: *Bar) void {
     self.monitor.bar = null;
+    self.layer_surface.destroy();
 
     self.background.surface.destroy();
-    self.layer_surface.destroy();
-    self.background.buffer.deinit();
+    self.background.viewport.destroy();
+    self.background.buffer.destroy();
 
     self.tags.deinit();
     self.clock.deinit();
@@ -102,7 +96,7 @@ fn layerSurfaceListener(
             layerSurface.ackConfigure(data.serial);
 
             const bg = &bar.background;
-            bg.surface.attach(bg.buffer.buffer, 0, 0);
+            bg.surface.attach(bg.buffer, 0, 0);
             bg.surface.damageBuffer(0, 0, bar.width, bar.height);
             bg.viewport.setDestination(bar.width, bar.height);
 

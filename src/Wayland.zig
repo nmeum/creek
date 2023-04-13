@@ -4,7 +4,6 @@ const mem = std.mem;
 const meta = std.meta;
 const os = std.os;
 const strcmp = std.cstr.cmp;
-const ArrayList = std.ArrayList;
 
 const wl = @import("wayland").client.wl;
 const wp = @import("wayland").client.wp;
@@ -26,13 +25,14 @@ fd: os.fd_t,
 compositor: ?*wl.Compositor = null,
 subcompositor: ?*wl.Subcompositor = null,
 shm: ?*wl.Shm = null,
+single_pixel_buffer_manager: ?*wp.SinglePixelBufferManagerV1 = null,
 viewporter: ?*wp.Viewporter = null,
 layer_shell: ?*zwlr.LayerShellV1 = null,
 status_manager: ?*zriver.StatusManagerV1 = null,
 control: ?*zriver.ControlV1 = null,
 
-monitors: ArrayList(*Monitor),
-inputs: ArrayList(*Input),
+monitors: std.ArrayList(*Monitor),
+inputs: std.ArrayList(*Input),
 
 pub fn init() !Wayland {
     const display = try wl.Display.connect(null);
@@ -41,8 +41,8 @@ pub fn init() !Wayland {
     return Wayland{
         .display = display,
         .fd = wfd,
-        .monitors = ArrayList(*Monitor).init(state.gpa),
-        .inputs = ArrayList(*Input).init(state.gpa),
+        .monitors = std.ArrayList(*Monitor).init(state.gpa),
+        .inputs = std.ArrayList(*Input).init(state.gpa),
     };
 }
 
@@ -57,6 +57,7 @@ pub fn deinit(self: *Wayland) void {
     if (self.subcompositor) |global| global.destroy();
     if (self.shm) |global| global.destroy();
     if (self.viewporter) |global| global.destroy();
+    if (self.single_pixel_buffer_manager) |global| global.destroy();
     if (self.layer_shell) |global| global.destroy();
     if (self.status_manager) |global| global.destroy();
     if (self.control) |global| global.destroy();
@@ -122,6 +123,8 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         self.shm = try registry.bind(name, wl.Shm, 1);
     } else if (strcmp(iface, wp.Viewporter.getInterface().name) == 0) {
         self.viewporter = try registry.bind(name, wp.Viewporter, 1);
+    } else if (strcmp(iface, wp.SinglePixelBufferManagerV1.getInterface().name) == 0) {
+        self.single_pixel_buffer_manager = try registry.bind(name, wp.SinglePixelBufferManagerV1, 1);
     } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
         self.layer_shell = try registry.bind(name, zwlr.LayerShellV1, 1);
     } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
