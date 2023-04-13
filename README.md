@@ -33,7 +33,8 @@ riverctl spawn "levee pulse backlight battery"
 
 ## Contributing
 
-Please join the [#levee] IRC channel to ask for help or to give feedback.
+Please join the [#andreafeletto] IRC channel to ask for help or to give
+feedback.
 You are welcome to send patches to the [mailing list] or report bugs on the
 [issue tracker].
 If you aren't familiar with `git send-email`, you can use the [web interface]
@@ -46,7 +47,7 @@ or learn about it by following this excellent [tutorial].
 [pixman]: http://pixman.org/
 [fcft]: https://codeberg.org/dnkl/fcft/
 [libpulse]: https://www.freedesktop.org/wiki/Software/PulseAudio/
-[#levee]: ircs://irc.libera.chat/#levee
+[#andreafeletto]: ircs://irc.libera.chat/#andreafeletto
 [mailing list]: https://lists.sr.ht/~andreafeletto/public-inbox
 [issue tracker]: https://todo.sr.ht/~andreafeletto/levee
 [web interface]: https://git.sr.ht/~andreafeletto/levee/send-email
