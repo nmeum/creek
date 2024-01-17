@@ -1,9 +1,9 @@
 ## README
 
 This is a fork of [levee] (a status bar for [River]) which is intended to be more [malleable].
-Specifically, it is supposed to easy [recombination and reuse][malleable reuse] by providing a simpler interface for adding custom information to the status bar.
-The original version of leeve only provides builtin support for certain [modules][levee modules], these have to be written in Zig and compiled into leeve.
-This fork attempts to ease this process by allowing arbitrary text to be written to standard input of the levee process, this text is then displayed in the status bar.
+Specifically, it is supposed to ease [recombination and reuse][malleable reuse] by providing a simpler interface for adding custom information to the status bar.
+The original version of levee only provides builtin support for certain [modules][levee modules], these have to be written in Zig and compiled into leeve.
+This fork pursues an alternative direction by allowing arbitrary text to be written to standard input of the levee process, this text is then displayed in the status bar.
 
 ### Build
 
@@ -19,7 +19,7 @@ In order to display the current time in the top-left corner of the status bar in
 
     $ ( while date; do sleep 1; done ) | levee
 
-For more complex, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
+Note that for more complex setups, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
 
 ### Dependencies
 
