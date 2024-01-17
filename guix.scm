@@ -33,7 +33,6 @@
       pixman
       fcft-utf8
       pkg-config
-      eudev
       wayland
       wayland-protocols
       zig))
