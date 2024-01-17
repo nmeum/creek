@@ -2,7 +2,9 @@ const std = @import("std");
 const log = std.log;
 const mem = std.mem;
 const os = std.os;
+const io = std.io;
 
+const render = @import("render.zig");
 const utils = @import("utils.zig");
 const Loop = @This();
 
@@ -36,8 +38,14 @@ pub fn run(self: *Loop) !void {
             .events = os.POLL.IN,
             .revents = undefined,
         },
+        .{
+            .fd = os.STDIN_FILENO,
+            .events = os.POLL.IN,
+            .revents = undefined,
+        },
     };
 
+    var reader = io.getStdIn().reader();
     while (true) {
         while (true) {
             const ret = wayland.display.dispatchPending();
@@ -69,6 +77,20 @@ pub fn run(self: *Loop) !void {
         if (fds[1].revents & os.POLL.OUT != 0) {
             const errno = wayland.display.flush();
             if (errno != .SUCCESS) return;
+        }
+
+        // status input
+        if (fds[2].revents & os.POLL.IN != 0) {
+            var buf: [4096]u8 = undefined;
+            var line = try reader.readUntilDelimiter(&buf, '\n');
+
+            for (state.wayland.monitors.items) |monitor| {
+                if (monitor.bar) |bar| {
+                    render.renderText(bar, line) catch continue;
+                    bar.modules.surface.commit();
+                    bar.background.surface.commit();
+                }
+            }
         }
     }
 }
