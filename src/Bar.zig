@@ -101,7 +101,6 @@ fn layerSurfaceListener(
             bg.viewport.setDestination(bar.width, bar.height);
 
             render.renderTags(bar) catch return;
-            render.renderClock(bar) catch return;
 
             bar.tags.surface.commit();
             bar.clock.surface.commit();

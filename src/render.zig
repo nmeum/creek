@@ -89,61 +89,6 @@ pub fn renderText(bar: *Bar, text: []u8) !void {
     surface.attach(buffer.buffer, 0, 0);
 }
 
-pub fn renderClock(bar: *Bar) !void {
-    const surface = bar.clock.surface;
-    const shm = state.wayland.shm.?;
-
-    // utf8 datetime
-    const str = try formatDatetime();
-    defer state.gpa.free(str);
-    const runes = try utils.toUtf8(state.gpa, str);
-    defer state.gpa.free(runes);
-
-    // resterize
-    const font = state.config.font;
-    const run = try font.rasterizeTextRunUtf32(runes, .default);
-    defer run.destroy();
-
-    // compute total width
-    var i: usize = 0;
-    var width: u16 = 0;
-    while (i < run.count) : (i += 1) {
-        width += @intCast(u16, run.glyphs[i].advance.x);
-    }
-
-    // set subsurface offset
-    const font_height = @intCast(u32, font.height);
-    const x_offset = @intCast(i32, (bar.width - width) / 2);
-    const y_offset = @intCast(i32, (bar.height - font_height) / 2);
-    bar.clock.subsurface.setPosition(x_offset, y_offset);
-
-    const buffers = &bar.clock.buffers;
-    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
-    if (buffer.buffer == null) return;
-    buffer.busy = true;
-
-    const bg_area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = width, .height = bar.height },
-    };
-    const bg_color = mem.zeroes(pixman.Color);
-    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
-
-    var x: i32 = 0;
-    i = 0;
-    var color = pixman.Image.createSolidFill(&state.config.foregroundColor).?;
-    while (i < run.count) : (i += 1) {
-        const glyph = run.glyphs[i];
-        x += @intCast(i32, glyph.x);
-        const y = state.config.font.ascent - @intCast(i32, glyph.y);
-        pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-        x += glyph.advance.x - @intCast(i32, glyph.x);
-    }
-
-    surface.setBufferScale(bar.monitor.scale);
-    surface.damageBuffer(0, 0, width, bar.height);
-    surface.attach(buffer.buffer, 0, 0);
-}
-
 fn renderTag(
     pix: *pixman.Image,
     tag: *const Tag,
@@ -187,17 +132,4 @@ fn renderTag(
     const x = offset + @divFloor(size - glyph.width, 2);
     const y = @divFloor(size - glyph.height, 2);
     pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-}
-
-fn formatDatetime() ![]const u8 {
-    var buf = try state.gpa.alloc(u8, 256);
-    const now = time.time(null);
-    const local = time.localtime(&now);
-    const len = time.strftime(
-        buf.ptr,
-        buf.len,
-        state.config.clockFormat,
-        local,
-    );
-    return state.gpa.resize(buf, len).?;
 }
