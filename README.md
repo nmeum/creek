@@ -1,13 +1,11 @@
+## README
 
-# [levee]
+This is a fork of [levee] which is intended to be more [malleable].
+Specifically, it is supposed to easy [recombination and reuse][malleable reuse] by providing a simpler interface for adding custom information to the status bar.
+The original version of leeve only provides builtin support for certain [modules][levee modules], these have to be written in Zig and compiled into leeve.
+This fork attempts to ease this process by allowing arbitrary text to be written to standard input of the levee process, this text is then displayed in the status bar.
 
-[![builds.sr.ht status](https://builds.sr.ht/~andreafeletto/levee/commits/main.svg)](https://builds.sr.ht/~andreafeletto/levee/commits/main)
-
-levee is a statusbar for the [river] wayland compositor, written in [zig]
-without any UI toolkit. It currently provides full support for workspace tags
-and displays pulseaudio volume, battery capacity and screen brightness.
-
-## Build
+### Build
 
 ```
 git clone --recurse-submodules https://git.sr.ht/~andreafeletto/levee
@@ -15,40 +13,32 @@ cd levee
 zig build --prefix ~/.local install
 ```
 
-## Usage
+### Usage Example
 
-Add the following toward the end of `$XDG_CONFIG_HOME/river/init`:
+In order to display the current time in the top-left corner of the status bar invoke leeve as follows:
 
-```
-riverctl spawn "levee pulse backlight battery"
-```
+    ( while date; do sleep 1; done ) | levee
 
-## Dependencies
+For more complex, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
+
+### Dependencies
 
 * [zig] 0.10.0
 * [wayland] 1.21.0
 * [pixman] 0.42.0
-* [fcft] 3.1.5
-* [libpulse] 16.0
-
-## Contributing
-
-Please join the [#andreafeletto] IRC channel to ask for help or to give
-feedback.
-You are welcome to send patches to the [mailing list] or report bugs on the
-[issue tracker].
-If you aren't familiar with `git send-email`, you can use the [web interface]
-or learn about it by following this excellent [tutorial].
+* [fcft] 3.1.5 (with [utf8proc])
 
 [levee]: https://sr.ht/~andreafeletto/levee
+[levee modules]: https://git.sr.ht/~andreafeletto/levee/tree/main/item/src/modules
+[malleable]: https://malleable.systems/
+[malleable reuse]: https://malleable.systems/mission/#2-arbitrary-recombination-and-reuse
 [river]: https://github.com/riverwm/river/
 [zig]: https://ziglang.org/
 [wayland]: https://wayland.freedesktop.org/
 [pixman]: http://pixman.org/
 [fcft]: https://codeberg.org/dnkl/fcft/
-[libpulse]: https://www.freedesktop.org/wiki/Software/PulseAudio/
+[utf8proc]: https://juliastrings.github.io/utf8proc/
 [#andreafeletto]: ircs://irc.libera.chat/#andreafeletto
 [mailing list]: https://lists.sr.ht/~andreafeletto/public-inbox
-[issue tracker]: https://todo.sr.ht/~andreafeletto/levee
-[web interface]: https://git.sr.ht/~andreafeletto/levee/send-email
 [tutorial]: https://git-send-email.io
+[IPC]: https://en.wikipedia.org/wiki/Inter-process_communication
