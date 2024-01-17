@@ -102,7 +102,6 @@ fn layerSurfaceListener(
 
             render.renderTags(bar) catch return;
             render.renderClock(bar) catch return;
-            render.renderModules(bar) catch return;
 
             bar.tags.surface.commit();
             bar.clock.surface.commit();

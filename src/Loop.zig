@@ -24,7 +24,6 @@ pub fn init() !Loop {
 
 pub fn run(self: *Loop) !void {
     const wayland = &state.wayland;
-    const modules = &state.modules;
 
     var fds = [_]os.pollfd{
         .{
@@ -34,21 +33,6 @@ pub fn run(self: *Loop) !void {
         },
         .{
             .fd = wayland.fd,
-            .events = os.POLL.IN,
-            .revents = undefined,
-        },
-        .{
-            .fd = if (modules.backlight) |mod| mod.fd else -1,
-            .events = os.POLL.IN,
-            .revents = undefined,
-        },
-        .{
-            .fd = if (modules.battery) |mod| mod.fd else -1,
-            .events = os.POLL.IN,
-            .revents = undefined,
-        },
-        .{
-            .fd = if (modules.pulse) |mod| mod.fd else -1,
             .events = os.POLL.IN,
             .revents = undefined,
         },
@@ -86,19 +70,5 @@ pub fn run(self: *Loop) !void {
             const errno = wayland.display.flush();
             if (errno != .SUCCESS) return;
         }
-
-        // modules
-        if (modules.backlight) |*mod| if (fds[2].revents & os.POLL.IN != 0) {
-            log.info("backlight", .{});
-            mod.refresh() catch return;
-        };
-        if (modules.battery) |*mod| if (fds[3].revents & os.POLL.IN != 0) {
-            log.info("battery", .{});
-            mod.refresh() catch return;
-        };
-        if (modules.pulse) |*mod| if (fds[4].revents & os.POLL.IN != 0) {
-            log.info("pulse", .{});
-            mod.refresh() catch return;
-        };
     }
 }

@@ -82,8 +82,7 @@ pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
         if (monitor.bar) |bar| {
             if (bar.background.surface == wlSurface or
                 bar.tags.surface == wlSurface or
-                bar.clock.surface == wlSurface or
-                bar.modules.surface == wlSurface)
+                bar.clock.surface == wlSurface)
             {
                 return bar;
             }
