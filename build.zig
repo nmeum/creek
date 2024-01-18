@@ -58,6 +58,11 @@ pub fn build(b: *std.build.Builder) void {
 
     exe.install();
 
+    const test_step = b.step("test", "Runs the test suite for all source filess");
+    const conf_test = b.addTest("src/Config.zig");
+    conf_test.addPackage(pixman);
+    test_step.dependOn(&conf_test.step);
+
     const run_cmd = exe.run();
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
