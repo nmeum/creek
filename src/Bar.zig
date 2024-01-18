@@ -26,6 +26,7 @@ background: struct {
 tags: Widget,
 text: Widget,
 
+text_padding: i32,
 configured: bool,
 width: u16,
 height: u16,
@@ -60,6 +61,12 @@ pub fn create(monitor: *Monitor) !*Bar {
 
     self.tags = try Widget.init(self.background.surface);
     self.text = try Widget.init(self.background.surface);
+
+    // calculate right padding for status text
+    const font = state.config.font;
+    const char_run = try font.rasterizeTextRunUtf32(&[_]u32{' '}, .default);
+    self.text_padding = char_run.glyphs[0].advance.x;
+    char_run.destroy();
 
     // setup layer surface
     self.layer_surface.setSize(0, state.config.height);

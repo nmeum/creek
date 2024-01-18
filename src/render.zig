@@ -58,7 +58,7 @@ pub fn renderText(bar: *Bar, text: []u8) !void {
 
     // set subsurface offset
     const font_height = @intCast(u32, state.config.font.height);
-    var x_offset = @intCast(i32, bar.width - width);
+    var x_offset = @intCast(i32, bar.width - width - bar.text_padding);
     var y_offset = @intCast(i32, @divFloor(bar.height - font_height, 2));
     bar.text.subsurface.setPosition(x_offset, y_offset);
 
