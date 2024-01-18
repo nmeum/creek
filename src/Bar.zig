@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = std.log;
 const mem = std.mem;
 
 const wl = @import("wayland").client.wl;
@@ -100,7 +101,11 @@ fn layerSurfaceListener(
             bg.surface.damageBuffer(0, 0, bar.width, bar.height);
             bg.viewport.setDestination(bar.width, bar.height);
 
-            render.renderTags(bar) catch return;
+            render.renderTags(bar) catch |err| {
+                log.err("renderTags failed for monitor {}: {s}",
+                        .{bar.monitor.globalName, @errorName(err)});
+                return;
+            };
 
             bar.tags.surface.commit();
             bar.clock.surface.commit();

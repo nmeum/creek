@@ -86,7 +86,12 @@ pub fn run(self: *Loop) !void {
 
             for (state.wayland.monitors.items) |monitor| {
                 if (monitor.bar) |bar| {
-                    render.renderText(bar, line) catch continue;
+                    render.renderText(bar, line) catch |err| {
+                        log.err("renderText failed for monitor {}: {s}",
+                                .{monitor.globalName, @errorName(err)});
+                        continue;
+                    };
+
                     bar.modules.surface.commit();
                     bar.background.surface.commit();
                 }

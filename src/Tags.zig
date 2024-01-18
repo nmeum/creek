@@ -1,4 +1,5 @@
 const std = @import("std");
+const log = std.log;
 
 const zriver = @import("wayland").client.zriver;
 
@@ -63,11 +64,18 @@ fn outputStatusListener(
         },
     }
     if (tags.monitor.bar) |bar| {
-        if (bar.configured) {
-            render.renderTags(bar) catch return;
-            bar.tags.surface.commit();
-            bar.background.surface.commit();
+        if (!bar.configured) {
+            return;
         }
+
+        render.renderTags(bar) catch |err| {
+            log.err("renderTags failed for monitor {}: {s}",
+                    .{tags.monitor.globalName, @errorName(err)});
+            return;
+        };
+
+        bar.tags.surface.commit();
+        bar.background.surface.commit();
     }
 }
 

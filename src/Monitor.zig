@@ -1,3 +1,6 @@
+const std = @import("std");
+const log = std.log;
+
 const wl = @import("wayland").client.wl;
 
 const Bar = @import("Bar.zig");
@@ -42,9 +45,14 @@ fn listener(_: *wl.Output, event: wl.Output.Event, monitor: *Monitor) void {
         .geometry => {},
         .mode => {},
         .done => {
-            if (monitor.bar) |_| {} else {
-                monitor.bar = Bar.create(monitor) catch return;
+            if (monitor.bar) |_| {
+                return;
             }
+            monitor.bar = Bar.create(monitor) catch |err| {
+                log.err("cannot create bar for monitor {}: {s}",
+                        .{monitor.globalName, @errorName(err)});
+                return;
+            };
         },
     }
 }

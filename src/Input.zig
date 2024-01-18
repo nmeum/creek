@@ -1,3 +1,6 @@
+const std = @import("std");
+const log = std.log;
+
 const wl = @import("wayland").client.wl;
 
 const Bar = @import("Bar.zig");
@@ -45,7 +48,10 @@ fn listener(seat: *wl.Seat, event: wl.Seat.Event, input: *Input) void {
                 input.pointer.pointer = null;
             }
             if (data.capabilities.pointer) {
-                input.pointer.pointer = seat.getPointer() catch return;
+                input.pointer.pointer = seat.getPointer() catch |err| {
+                    log.err("cannot obtain seat pointer: {s}", .{@errorName(err)});
+                    return;
+                };
                 input.pointer.pointer.?.setListener(
                     *Input,
                     pointerListener,
@@ -88,7 +94,11 @@ fn pointerListener(
 
                 const x = @intCast(u32, input.pointer.x);
                 if (x < bar.height * 9) {
-                    bar.monitor.tags.handleClick(x, input) catch return;
+                    bar.monitor.tags.handleClick(x, input) catch |err| {
+                        log.err("handleClick failed for monitor {}: {s}",
+                                .{bar.monitor.globalName, @errorName(err)});
+                        return;
+                    };
                 }
             }
         },
