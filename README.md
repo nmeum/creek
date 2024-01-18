@@ -17,6 +17,17 @@ If you want to hack on levee using Guix:
 
     $ guix shell -D -f guix.scm
 
+### Configuration
+
+This version of levee can be configured using several environment variable.
+Presently, the following variables can be set:
+
+* `LEVEE_FONT`: The font used in the status bar (e.g. `monospace:size=14`)
+* `LEVEE_HEIGHT`: The total height of the status bar
+* `LEVEE_BORDER`: Size of the border used to denote an active tag
+* `LEVEE_BGCOLOR`: Background color
+* `LEVEE_FGCOLOR`: Foreground color
+
 ### Usage Example
 
 In order to display the current time in the top-left corner of the status bar invoke levee as follows:
