@@ -30,7 +30,14 @@ configured: bool,
 width: u16,
 height: u16,
 
+// Convert a pixman u16 color to a 32-bit color with a pre-multiplied
+// alpha channel as used by the "Single-pixel buffer" Wayland protocol.
+fn toRgba(color: u16) u32 {
+    return (@as(u32, color) >> 8) << 24 | 0xffffff;
+}
+
 pub fn create(monitor: *Monitor) !*Bar {
+    const bg_color = &state.config.backgroundColor;
     const self = try state.gpa.create(Bar);
     self.monitor = monitor;
     self.configured = false;
@@ -42,7 +49,12 @@ pub fn create(monitor: *Monitor) !*Bar {
 
     self.background.surface = try compositor.createSurface();
     self.background.viewport = try viewporter.getViewport(self.background.surface);
-    self.background.buffer = try spb_manager.createU32RgbaBuffer(0, 0, 0, 0xffffffff);
+    self.background.buffer = try spb_manager.createU32RgbaBuffer(
+        toRgba(bg_color.red),
+        toRgba(bg_color.green),
+        toRgba(bg_color.blue),
+        0xffffffff
+    );
 
     self.layer_surface = try layer_shell.getLayerSurface(self.background.surface, monitor.output, .top, "levee");
 
