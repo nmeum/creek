@@ -37,7 +37,7 @@ pub fn renderTags(bar: *Bar) !void {
 }
 
 pub fn renderText(bar: *Bar, text: []u8) !void {
-    const surface = bar.modules.surface;
+    const surface = bar.text.surface;
     const shm = state.wayland.shm.?;
 
     // utf8 encoding
@@ -60,9 +60,9 @@ pub fn renderText(bar: *Bar, text: []u8) !void {
     const font_height = @intCast(u32, state.config.font.height);
     var x_offset = @intCast(i32, bar.width - width);
     var y_offset = @intCast(i32, @divFloor(bar.height - font_height, 2));
-    bar.modules.subsurface.setPosition(x_offset, y_offset);
+    bar.text.subsurface.setPosition(x_offset, y_offset);
 
-    const buffers = &bar.modules.buffers;
+    const buffers = &bar.text.buffers;
     const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
     if (buffer.buffer == null) return;
     buffer.busy = true;

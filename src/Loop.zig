@@ -92,7 +92,7 @@ pub fn run(self: *Loop) !void {
                         continue;
                     };
 
-                    bar.modules.surface.commit();
+                    bar.text.surface.commit();
                     bar.background.surface.commit();
                 }
             }

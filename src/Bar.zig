@@ -24,8 +24,7 @@ background: struct {
 },
 
 tags: Widget,
-clock: Widget,
-modules: Widget,
+text: Widget,
 
 configured: bool,
 width: u16,
@@ -48,8 +47,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.layer_surface = try layer_shell.getLayerSurface(self.background.surface, monitor.output, .top, "levee");
 
     self.tags = try Widget.init(self.background.surface);
-    self.clock = try Widget.init(self.background.surface);
-    self.modules = try Widget.init(self.background.surface);
+    self.text = try Widget.init(self.background.surface);
 
     // setup layer surface
     self.layer_surface.setSize(0, state.config.height);
@@ -61,8 +59,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.layer_surface.setListener(*Bar, layerSurfaceListener, self);
 
     self.tags.surface.commit();
-    self.clock.surface.commit();
-    self.modules.surface.commit();
+    self.text.surface.commit();
     self.background.surface.commit();
 
     return self;
@@ -77,9 +74,6 @@ pub fn destroy(self: *Bar) void {
     self.background.buffer.destroy();
 
     self.tags.deinit();
-    self.clock.deinit();
-    self.modules.deinit();
-
     state.gpa.destroy(self);
 }
 
@@ -108,8 +102,7 @@ fn layerSurfaceListener(
             };
 
             bar.tags.surface.commit();
-            bar.clock.surface.commit();
-            bar.modules.surface.commit();
+            bar.text.surface.commit();
             bar.background.surface.commit();
         },
         .closed => bar.destroy(),
