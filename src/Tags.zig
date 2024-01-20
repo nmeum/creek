@@ -2,6 +2,7 @@ const std = @import("std");
 const log = std.log;
 
 const zriver = @import("wayland").client.zriver;
+const pixman = @import("pixman");
 
 const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
@@ -19,6 +20,22 @@ pub const Tag = struct {
     focused: bool = false,
     occupied: bool = false,
     urgent: bool = false,
+
+    pub fn outerColor(self: *const Tag) *pixman.Color {
+        if (self.focused or self.occupied) {
+            return &state.config.foregroundColor;
+        } else {
+            return &state.config.backgroundColor;
+        }
+    }
+
+    pub fn glyphColor(self: *const Tag) *pixman.Color {
+        if (self.focused) {
+            return &state.config.backgroundColor;
+        } else {
+            return &state.config.foregroundColor;
+        }
+    }
 };
 
 pub fn create(monitor: *Monitor) !*Tags {
