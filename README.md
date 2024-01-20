@@ -5,6 +5,13 @@ Specifically, it is supposed to ease [recombination and reuse][malleable reuse] 
 The original version of levee only provides builtin support for certain [modules][levee modules], these have to be written in Zig and compiled into levee.
 This fork pursues an alternative direction by allowing arbitrary text to be written to standard input of the levee process, this text is then displayed in the status bar.
 
+### Screenshot
+
+![Screenshot of River with a leeve status bar](https://files.8pit.net/img/levee-screenshot-20240120.png)
+
+The screenshot features three active tags: tag 2 is currently focused but doesn't have any windows, tag 4 is not focused but is occupied (i.e. has windows), and tag 9 has an urgent window.
+On the right-hand side, the current time is display this is information is generated using `date(1)` (see usage example below).
+
 ### Build
 
 This software is intended to be installed using [Guix]:
