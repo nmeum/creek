@@ -18,6 +18,7 @@ pub const Tag = struct {
     label: u8,
     focused: bool = false,
     occupied: bool = false,
+    urgent: bool = false,
 };
 
 pub fn create(monitor: *Monitor) !*Tags {
@@ -49,6 +50,12 @@ fn outputStatusListener(
             for (tags.tags) |*tag, i| {
                 const mask = @as(u32, 1) << @intCast(u5, i);
                 tag.focused = data.tags & mask != 0;
+            }
+        },
+        .urgent_tags => |data| {
+            for (tags.tags) |*tag, i| {
+                const mask = @as(u32, 1) << @intCast(u5, i);
+                tag.urgent = data.tags & mask != 0;
             }
         },
         .view_tags => |data| {
