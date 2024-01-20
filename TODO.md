@@ -5,8 +5,6 @@ The following features should still be implemented at some point:
 * Display title of selected window in the center of the status bar
     * This is where upstream levee displays the clock
     * Similar to dwm's default status bar
-* Highlight tags with windows that have an urgent flag set
-    * Again, this is similar to what dwm does
 
 # Upstream
 
@@ -21,4 +19,4 @@ The following changes should/could be send upstream:
     * See 6416dfd9f96464046c3eee9559edb4a34b6e49ac
 * Improved error-handling
     * Noticed this when using levee w/o fcft utf8proc support
-    * See …
+    * See 83e4227a6eccca2fcc1cd402e2713b2b1fad8ccb
