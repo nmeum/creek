@@ -22,10 +22,8 @@ pub const Tag = struct {
     urgent: bool = false,
 
     pub fn outerColor(self: *const Tag) *pixman.Color {
-        if (self.focused) {
+        if (self.focused or self.occupied) {
             return &state.config.focusBgColor;
-        } else if (self.occupied) {
-            return &state.config.normalFgColor;
         } else {
             return &state.config.normalBgColor;
         }
