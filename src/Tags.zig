@@ -22,7 +22,11 @@ pub const Tag = struct {
     urgent: bool = false,
 
     pub fn outerColor(self: *const Tag) *pixman.Color {
-        if (self.focused or self.occupied) {
+        if (self.focused) {
+            return &state.config.focusBgColor;
+        } else if (self.urgent) {
+            return &state.config.normalFgColor;
+        } else if (self.occupied) {
             return &state.config.focusBgColor;
         } else {
             return &state.config.normalBgColor;
@@ -32,6 +36,8 @@ pub const Tag = struct {
     pub fn glyphColor(self: *const Tag) *pixman.Color {
         if (self.focused) {
             return &state.config.focusFgColor;
+        } else if (self.urgent) {
+            return &state.config.normalBgColor;
         } else {
             return &state.config.normalFgColor;
         }

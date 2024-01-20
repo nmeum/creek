@@ -113,7 +113,7 @@ fn renderTag(
         },
     };
     const inner_color = &state.config.normalBgColor;
-    if (!tag.focused and tag.occupied) {
+    if (!(tag.focused or tag.urgent) and tag.occupied) {
         _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &inner);
     }
 
