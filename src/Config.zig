@@ -25,8 +25,10 @@ const WhiteColor = pixman.Color{
 const Config = @This();
 
 height: u16,
-backgroundColor: pixman.Color,
-foregroundColor: pixman.Color,
+normalBgColor: pixman.Color,
+normalFgColor: pixman.Color,
+focusBgColor: pixman.Color,
+focusFgColor: pixman.Color,
 border: u15,
 font: *fcft.Font,
 
@@ -87,10 +89,15 @@ pub fn init() !Config {
     const height = try numberEnv(32, "LEVEE_HEIGHT");
     const border = try numberEnv(2, "LEVEE_BORDER");
 
+    const bg_color = try colorEnv(BlackColor, "LEVEE_NORMAL_BG");
+    const fg_color = try colorEnv(WhiteColor, "LEVEE_NORMAL_FG");
+
     return Config{
         .height = @intCast(u16, height),
-        .backgroundColor = try colorEnv(BlackColor, "LEVEE_BGCOLOR"),
-        .foregroundColor = try colorEnv(WhiteColor, "LEVEE_FGCOLOR"),
+        .normalBgColor = bg_color,
+        .normalFgColor = fg_color,
+        .focusBgColor = try colorEnv(fg_color, "LEVEE_FOCUS_BG"),
+        .focusFgColor = try colorEnv(bg_color, "LEVEE_FOCUS_FG"),
         .border = @intCast(u15, border),
         .font = try fcft.Font.fromName(&font_names, null),
     };

@@ -38,7 +38,7 @@ fn toRgba(color: u16) u32 {
 }
 
 pub fn create(monitor: *Monitor) !*Bar {
-    const bg_color = &state.config.backgroundColor;
+    const bg_color = &state.config.normalBgColor;
     const self = try state.gpa.create(Bar);
     self.monitor = monitor;
     self.configured = false;

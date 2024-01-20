@@ -25,8 +25,10 @@ Presently, the following variables can be set:
 * `LEVEE_FONT`: The font used in the status bar (e.g. `monospace:size=14`)
 * `LEVEE_HEIGHT`: The total height of the status bar
 * `LEVEE_BORDER`: Size of the border used to denote an active tag
-* `LEVEE_BGCOLOR`: Background color
-* `LEVEE_FGCOLOR`: Foreground color
+* `LEVEE_NORMAL_BG`: Normal background color
+* `LEVEE_NORMAL_FG`: Normal foreground color
+* `LEVEE_FOCUS_BG`: Background color for focused tags
+* `LEVEE_NORMAL_FG`: Foreground color for focused tags
 
 ### Usage Example
 

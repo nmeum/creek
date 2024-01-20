@@ -75,7 +75,7 @@ pub fn renderText(bar: *Bar, text: []u8) !void {
 
     var x: i32 = 0;
     i = 0;
-    var color = pixman.Image.createSolidFill(&state.config.foregroundColor).?;
+    var color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
     while (i < run.count) : (i += 1) {
         const glyph = run.glyphs[i];
         x += @intCast(i32, glyph.x);
@@ -112,7 +112,7 @@ fn renderTag(
             .height = size - 2 * border,
         },
     };
-    const inner_color = &state.config.backgroundColor;
+    const inner_color = &state.config.normalBgColor;
     if (!tag.focused and tag.occupied) {
         _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &inner);
     }
