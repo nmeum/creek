@@ -85,6 +85,7 @@ pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {
     for (self.monitors.items) |monitor| {
         if (monitor.bar) |bar| {
             if (bar.background.surface == wlSurface or
+                bar.title.surface == wlSurface or
                 bar.tags.surface == wlSurface or
                 bar.text.surface == wlSurface)
             {

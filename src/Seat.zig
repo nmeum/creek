@@ -2,6 +2,7 @@ const std = @import("std");
 const log = std.log;
 const Mutex = std.Thread.Mutex;
 
+const render = @import("render.zig");
 const zriver = @import("wayland").client.zriver;
 const state = &@import("root").state;
 
@@ -44,20 +45,32 @@ fn seatListener(
         .focused_output => |_| {},
         .unfocused_output => |_| {},
         .focused_view => |data| {
-            seat.mtx.lock();
-            defer seat.mtx.unlock();
+            for (state.wayland.monitors.items) |monitor| {
+                if (monitor.bar) |bar| {
+                    const title = std.mem.sliceTo(data.title, 0);
 
-            if (seat.window_title) |t| {
-                state.gpa.free(t);
+                    seat.mtx.lock();
+                    if (seat.window_title) |t| {
+                        state.gpa.free(t);
+                    }
+                    const vz = state.gpa.allocSentinel(u8, title.len, 0) catch |err| {
+                        log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
+                        return seat.mtx.unlock();
+                    };
+                    std.mem.copy(u8, vz, title);
+                    seat.window_title = vz;
+                    seat.mtx.unlock();
+
+                    render.renderTitle(bar, title) catch |err| {
+                        log.err("renderTitle failed for monitor {}: {s}",
+                               .{bar.monitor.globalName, @errorName(err)});
+                        return;
+                    };
+
+                    bar.title.surface.commit();
+                    bar.background.surface.commit();
+                }
             }
-
-            const title = std.mem.sliceTo(data.title, 0);
-            const vz = state.gpa.allocSentinel(u8, title.len, 0) catch |err| {
-                log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
-                return;
-            };
-            std.mem.copy(u8, vz, title);
-            seat.window_title = vz;
         },
     }
 }
