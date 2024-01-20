@@ -8,25 +8,13 @@ const pixman = @import("pixman");
 
 const state = &@import("root").state;
 
-const BlackColor = pixman.Color{
-    .red = 0,
-    .green = 0,
-    .blue = 0,
-    .alpha = 0xffff,
-};
-
-const WhiteColor = pixman.Color{
-    .red = 0xffff,
-    .green = 0xffff,
-    .blue = 0xffff,
-    .alpha = 0xffff,
-};
-
 const Config = @This();
 
 height: u16,
-backgroundColor: pixman.Color,
-foregroundColor: pixman.Color,
+normalBgColor: pixman.Color,
+normalFgColor: pixman.Color,
+focusBgColor: pixman.Color,
+focusFgColor: pixman.Color,
 border: u15,
 font: *fcft.Font,
 
@@ -47,12 +35,12 @@ fn parseColor(str: []const u8) !pixman.Color {
     };
 }
 
-fn colorEnv(def: pixman.Color, key: []const u8) !pixman.Color {
+fn colorEnv(def: []const u8, key: []const u8) !pixman.Color {
     var val = os.getenv(key);
     if (val) |v| {
         return parseColor(v);
     } else {
-        return def;
+        return parseColor(def);
     }
 }
 
@@ -89,8 +77,10 @@ pub fn init() !Config {
 
     return Config{
         .height = @intCast(u16, height),
-        .backgroundColor = try colorEnv(BlackColor, "LEVEE_BGCOLOR"),
-        .foregroundColor = try colorEnv(WhiteColor, "LEVEE_FGCOLOR"),
+        .normalBgColor = try colorEnv("0x282828", "LEVEE_NORMAL_BG"),
+        .normalFgColor = try colorEnv("0xb8b8b8", "LEVEE_NORMAL_FG"),
+        .focusBgColor = try colorEnv("0x7cafc2", "LEVEE_FOCUS_BG"),
+        .focusFgColor = try colorEnv("0x181818", "LEVEE_FOCUS_FG"),
         .border = @intCast(u15, border),
         .font = try fcft.Font.fromName(&font_names, null),
     };

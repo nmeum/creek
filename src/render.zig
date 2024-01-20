@@ -75,7 +75,7 @@ pub fn renderText(bar: *Bar, text: []u8) !void {
 
     var x: i32 = 0;
     i = 0;
-    var color = pixman.Image.createSolidFill(&state.config.foregroundColor).?;
+    var color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
     while (i < run.count) : (i += 1) {
         const glyph = run.glyphs[i];
         x += @intCast(i32, glyph.x);
@@ -100,11 +100,7 @@ fn renderTag(
     const outer = [_]pixman.Rectangle16{
         .{ .x = offset, .y = 0, .width = size, .height = size },
     };
-    const outer_color = if (tag.focused or tag.occupied) blk: {
-        break :blk &state.config.foregroundColor;
-    } else blk: {
-        break :blk &state.config.backgroundColor;
-    };
+    const outer_color = tag.outerColor();
     _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
 
     const border = state.config.border;
@@ -116,16 +112,12 @@ fn renderTag(
             .height = size - 2 * border,
         },
     };
-    const inner_color = &state.config.backgroundColor;
-    if (!tag.focused and tag.occupied) {
+    const inner_color = &state.config.normalBgColor;
+    if (!(tag.focused or tag.urgent) and tag.occupied) {
         _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &inner);
     }
 
-    const glyph_color = if (tag.focused) blk: {
-        break :blk &state.config.backgroundColor;
-    } else blk: {
-        break :blk &state.config.foregroundColor;
-    };
+    const glyph_color = tag.glyphColor();
     const font = state.config.font;
     var char = pixman.Image.createSolidFill(glyph_color).?;
     const glyph = try font.rasterizeCharUtf32(tag.label, .default);

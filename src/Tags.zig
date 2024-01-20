@@ -2,6 +2,7 @@ const std = @import("std");
 const log = std.log;
 
 const zriver = @import("wayland").client.zriver;
+const pixman = @import("pixman");
 
 const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
@@ -18,6 +19,29 @@ pub const Tag = struct {
     label: u8,
     focused: bool = false,
     occupied: bool = false,
+    urgent: bool = false,
+
+    pub fn outerColor(self: *const Tag) *pixman.Color {
+        if (self.focused) {
+            return &state.config.focusBgColor;
+        } else if (self.urgent) {
+            return &state.config.normalFgColor;
+        } else if (self.occupied) {
+            return &state.config.focusBgColor;
+        } else {
+            return &state.config.normalBgColor;
+        }
+    }
+
+    pub fn glyphColor(self: *const Tag) *pixman.Color {
+        if (self.focused) {
+            return &state.config.focusFgColor;
+        } else if (self.urgent) {
+            return &state.config.normalBgColor;
+        } else {
+            return &state.config.normalFgColor;
+        }
+    }
 };
 
 pub fn create(monitor: *Monitor) !*Tags {
@@ -49,6 +73,12 @@ fn outputStatusListener(
             for (tags.tags) |*tag, i| {
                 const mask = @as(u32, 1) << @intCast(u5, i);
                 tag.focused = data.tags & mask != 0;
+            }
+        },
+        .urgent_tags => |data| {
+            for (tags.tags) |*tag, i| {
+                const mask = @as(u32, 1) << @intCast(u5, i);
+                tag.urgent = data.tags & mask != 0;
             }
         },
         .view_tags => |data| {

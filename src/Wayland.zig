@@ -127,7 +127,7 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
     } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
         self.layer_shell = try registry.bind(name, zwlr.LayerShellV1, 1);
     } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
-        self.status_manager = try registry.bind(name, zriver.StatusManagerV1, 1);
+        self.status_manager = try registry.bind(name, zriver.StatusManagerV1, 2);
     } else if (strcmp(iface, zriver.ControlV1.getInterface().name) == 0) {
         self.control = try registry.bind(name, zriver.ControlV1, 1);
     } else if (strcmp(iface, wl.Output.getInterface().name) == 0) {
