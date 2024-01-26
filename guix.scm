@@ -2,9 +2,7 @@
              ((guix licenses) #:prefix license:)
              (guix gexp)
              (guix build-system zig)
-             (gnu packages gdb)
              (gnu packages zig)
-             (gnu packages linux)
              (gnu packages freedesktop)
              (gnu packages xdisorg)
              (gnu packages pkg-config)
@@ -19,7 +17,7 @@
                      (prepend utf8proc)))))
 
 (package
-  (name "leeve")
+  (name "levee")
   (version "0.1.3")
   (source (local-file "." "git-checkout"
                       #:recursive? #t))
@@ -36,7 +34,7 @@
       wayland
       wayland-protocols
       zig))
-  (home-page "https://github.com/nmeum/leeve")
+  (home-page "https://github.com/nmeum/levee")
   (synopsis "A minimalistic and malleable status bar for the River compositor.")
   (description "")
   (license license:expat))
