@@ -2,6 +2,7 @@ const std = @import("std");
 const log = std.log;
 const mem = std.mem;
 
+const fcft = @import("fcft");
 const wl = @import("wayland").client.wl;
 const wp = @import("wayland").client.wp;
 const zwlr = @import("wayland").client.zwlr;
@@ -23,8 +24,15 @@ background: struct {
     buffer: *wl.Buffer,
 },
 
+title: Widget,
 tags: Widget,
 text: Widget,
+
+tags_width: u16,
+text_width: u16,
+
+abbrev_width: u16,
+abbrev_run: *const fcft.TextRun,
 
 text_padding: i32,
 configured: bool,
@@ -50,15 +58,11 @@ pub fn create(monitor: *Monitor) !*Bar {
 
     self.background.surface = try compositor.createSurface();
     self.background.viewport = try viewporter.getViewport(self.background.surface);
-    self.background.buffer = try spb_manager.createU32RgbaBuffer(
-        toRgba(bg_color.red),
-        toRgba(bg_color.green),
-        toRgba(bg_color.blue),
-        0xffffffff
-    );
+    self.background.buffer = try spb_manager.createU32RgbaBuffer(toRgba(bg_color.red), toRgba(bg_color.green), toRgba(bg_color.blue), 0xffffffff);
 
     self.layer_surface = try layer_shell.getLayerSurface(self.background.surface, monitor.output, .top, "levee");
 
+    self.title = try Widget.init(self.background.surface);
     self.tags = try Widget.init(self.background.surface);
     self.text = try Widget.init(self.background.surface);
 
@@ -67,6 +71,14 @@ pub fn create(monitor: *Monitor) !*Bar {
     const char_run = try font.rasterizeTextRunUtf32(&[_]u32{' '}, .default);
     self.text_padding = char_run.glyphs[0].advance.x;
     char_run.destroy();
+
+    // rasterize abbreviation glyphs for window ttile.
+    self.abbrev_run = try font.rasterizeTextRunUtf32(&[_]u32{'…'}, .default);
+    self.abbrev_width = 0;
+    var i: usize = 0;
+    while (i < self.abbrev_run.count) : (i += 1) {
+        self.abbrev_width = @intCast(u16, self.abbrev_run.glyphs[i].advance.x);
+    }
 
     // setup layer surface
     self.layer_surface.setSize(0, state.config.height);
@@ -78,13 +90,18 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.layer_surface.setListener(*Bar, layerSurfaceListener, self);
 
     self.tags.surface.commit();
+    self.title.surface.commit();
     self.text.surface.commit();
     self.background.surface.commit();
+
+    self.tags_width = 0;
+    self.text_width = 0;
 
     return self;
 }
 
 pub fn destroy(self: *Bar) void {
+    self.abbrev_run.destroy();
     self.monitor.bar = null;
     self.layer_surface.destroy();
 
@@ -92,6 +109,7 @@ pub fn destroy(self: *Bar) void {
     self.background.viewport.destroy();
     self.background.buffer.destroy();
 
+    self.title.deinit();
     self.tags.deinit();
     state.gpa.destroy(self);
 }
@@ -115,12 +133,12 @@ fn layerSurfaceListener(
             bg.viewport.setDestination(bar.width, bar.height);
 
             render.renderTags(bar) catch |err| {
-                log.err("renderTags failed for monitor {}: {s}",
-                        .{bar.monitor.globalName, @errorName(err)});
+                log.err("renderTags failed for monitor {}: {s}", .{ bar.monitor.globalName, @errorName(err) });
                 return;
             };
 
             bar.tags.surface.commit();
+            bar.title.surface.commit();
             bar.text.surface.commit();
             bar.background.surface.commit();
         },
