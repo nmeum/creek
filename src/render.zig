@@ -54,17 +54,18 @@ fn renderRun(start: i32, buffer: *Buffer, image: *pixman.Image, bar: *Bar, glyph
     return x;
 }
 
-pub fn renderTitle(bar: *Bar, title: []const u8) !void {
+pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
     const surface = bar.title.surface;
     const shm = state.wayland.shm.?;
 
-    const runes = try utils.toUtf8(state.gpa, title);
-    defer state.gpa.free(runes);
-
-    // resterize
-    const font = state.config.font;
-    const run = try font.rasterizeTextRunUtf32(runes, .default);
-    defer run.destroy();
+    var runes: ?[]u32 = null;
+    if (title) |t| {
+        if (t.len > 0)
+            runes = try utils.toUtf8(state.gpa, t);
+    }
+    defer {
+        if (runes) |r| state.gpa.free(r);
+    }
 
     // calculate width
     const title_start = bar.tags_width;
@@ -89,35 +90,40 @@ pub fn renderTitle(bar: *Bar, title: []const u8) !void {
     if (buffer.buffer == null) return;
     buffer.busy = true;
 
-    const bg_color = if (title.len == 0) blk: {
-        break :blk state.config.normalBgColor;
-    } else blk: {
-        break :blk state.config.focusBgColor;
-    };
+    var bg_color = state.config.normalBgColor;
+    if (title) |t| {
+        if (t.len > 0) bg_color = state.config.focusBgColor;
+    }
     const bg_area = [_]pixman.Rectangle16{
         .{ .x = 0, .y = 0, .width = width, .height = bar.height },
     };
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
 
-    // calculate maximum amount of glyphs that can be displayed
-    var max_x: i32 = bar.text_padding;
-    var max_glyphs: u16 = 0;
-    var i: usize = 0;
-    while (i < run.count) : (i += 1) {
-        const glyph = run.glyphs[i];
-        max_x += @intCast(i32, glyph.x);
-        if (max_x >= width - (2 * bar.text_padding) - bar.abbrev_width) {
-            break;
-        }
-        max_x += glyph.advance.x - @intCast(i32, glyph.x);
-        max_glyphs += 1;
-    }
+    if (runes) |r| {
+        const font = state.config.font;
+        const run = try font.rasterizeTextRunUtf32(r, .default);
+        defer run.destroy();
 
-    var x: i32 = bar.text_padding;
-    var color = pixman.Image.createSolidFill(&state.config.focusFgColor).?;
-    x += try renderRun(bar.text_padding, buffer, color, bar, run.glyphs, max_glyphs);
-    if (run.count > max_glyphs) { // if abbreviated
-        _ = try renderRun(x, buffer, color, bar, bar.abbrev_run.glyphs, bar.abbrev_run.count);
+        // calculate maximum amount of glyphs that can be displayed
+        var max_x: i32 = bar.text_padding;
+        var max_glyphs: u16 = 0;
+        var i: usize = 0;
+        while (i < run.count) : (i += 1) {
+            const glyph = run.glyphs[i];
+            max_x += @intCast(i32, glyph.x);
+            if (max_x >= width - (2 * bar.text_padding) - bar.abbrev_width) {
+                break;
+            }
+            max_x += glyph.advance.x - @intCast(i32, glyph.x);
+            max_glyphs += 1;
+        }
+
+        var x: i32 = bar.text_padding;
+        var color = pixman.Image.createSolidFill(&state.config.focusFgColor).?;
+        x += try renderRun(bar.text_padding, buffer, color, bar, run.glyphs, max_glyphs);
+        if (run.count > max_glyphs) { // if abbreviated
+            _ = try renderRun(x, buffer, color, bar, bar.abbrev_run.glyphs, bar.abbrev_run.count);
+        }
     }
 
     surface.setBufferScale(bar.monitor.scale);
@@ -183,15 +189,11 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
 
         if (state.wayland.seat) |seat| {
             seat.mtx.lock();
-            if (seat.window_title) |t| {
-                renderTitle(bar, t) catch |err| {
-                    seat.mtx.unlock();
-                    return err;
-                };
-                bar.title.surface.commit();
-                bar.background.surface.commit();
-            }
-            seat.mtx.unlock();
+            defer seat.mtx.unlock();
+
+            try renderTitle(bar, seat.window_title);
+            bar.title.surface.commit();
+            bar.background.surface.commit();
         }
     }
 }

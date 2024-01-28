@@ -47,21 +47,25 @@ fn seatListener(
         .focused_view => |data| {
             for (state.wayland.monitors.items) |monitor| {
                 if (monitor.bar) |bar| {
-                    const title = std.mem.sliceTo(data.title, 0);
+                    var title = std.mem.sliceTo(data.title, 0);
 
                     seat.mtx.lock();
                     if (seat.window_title) |t| {
                         state.gpa.free(t);
                     }
-                    const vz = state.gpa.allocSentinel(u8, title.len, 0) catch |err| {
-                        log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
-                        return seat.mtx.unlock();
-                    };
-                    std.mem.copy(u8, vz, title);
-                    seat.window_title = vz;
+                    if (title.len == 0) {
+                        seat.window_title = null;
+                    } else {
+                        const vz = state.gpa.allocSentinel(u8, title.len, 0) catch |err| {
+                            log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
+                            return seat.mtx.unlock();
+                        };
+                        std.mem.copy(u8, vz, title);
+                        seat.window_title = vz;
+                    }
                     seat.mtx.unlock();
 
-                    render.renderTitle(bar, title) catch |err| {
+                    render.renderTitle(bar, seat.window_title) catch |err| {
                         log.err("renderTitle failed for monitor {}: {s}",
                                .{bar.monitor.globalName, @errorName(err)});
                         return;
