@@ -7,10 +7,11 @@ This fork pursues an alternative direction by allowing arbitrary text to be writ
 
 ### Screenshot
 
-![Screenshot of River with a leeve status bar](https://files.8pit.net/img/levee-screenshot-20240120.png)
+![Screenshot of River with a leeve status bar](https://files.8pit.net/img/levee-screenshot-20240128.png)
 
-The screenshot features three active tags: tag 2 is currently focused but doesn't have any windows, tag 4 is not focused but is occupied (i.e. has windows), and tag 9 has an urgent window.
-On the right-hand side, the current time is display this is information is generated using `date(1)` (see usage example below).
+The screenshot features three active tags: tag 2 is currently focused and has one active window, tag 4 is not focused but is occupied (i.e. has windows), and tag 9 has an urgent window.
+In the middle of the status bar, the current title of the selected window on the focused tag is displayed.
+On the right-hand side, the current time is shown, this is information is generated using `date(1)` (see usage example below).
 
 ### Build
 
