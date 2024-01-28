@@ -21,7 +21,7 @@ pub fn renderTags(bar: *Bar) !void {
     const buffers = &bar.tags.buffers;
     const shm = state.wayland.shm.?;
 
-    const width = bar.height * @as(u16, tags.len);
+    const width = bar.height * @as(u16, tags.len + 1);
     const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
     if (buffer.buffer == null) return;
     buffer.busy = true;
@@ -30,6 +30,11 @@ pub fn renderTags(bar: *Bar) !void {
         const offset = @intCast(i16, bar.height * i);
         try renderTag(buffer.pix.?, tag, bar.height, offset);
     }
+
+    // Separator tag to visually separate last focused tag from
+    // focused window title (both use the same background color).
+    const offset = @intCast(i16, bar.height * tags.len);
+    try renderTag(buffer.pix.?, &Tag{.label = '|'}, bar.height, offset);
 
     bar.tags_width = width;
     surface.setBufferScale(bar.monitor.scale);
