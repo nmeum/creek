@@ -21,7 +21,7 @@ pub fn renderTags(bar: *Bar) !void {
     const buffers = &bar.tags.buffers;
     const shm = state.wayland.shm.?;
 
-    const width = bar.height * 9;
+    const width = bar.height * @as(u16, tags.len);
     const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
     if (buffer.buffer == null) return;
     buffer.busy = true;
