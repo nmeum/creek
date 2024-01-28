@@ -35,6 +35,6 @@
       wayland-protocols
       zig))
   (home-page "https://github.com/nmeum/creek")
-  (synopsis "A minimalistic and malleable status bar for the River compositor.")
+  (synopsis "Malleable and minimalist status bar for the River compositor.")
   (description "")
   (license license:expat))

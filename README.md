@@ -1,6 +1,6 @@
 ## README
 
-Creek is a [dwm]-inspired [malleable] and minimalistic status bar for the [River] Wayland compositor.
+Creek is a [dwm]-inspired [malleable] and minimalist status bar for the [River] Wayland compositor.
 The implementation is a hard fork of version 0.1.3 of the [levee] status bar.
 Compared to levee, the main objective is to ease [recombination and reuse][malleable reuse] by providing a simpler interface for adding custom information to the status bar.
 The original version of levee only provides builtin support for certain [modules][levee modules], these have to be written in Zig and compiled into levee.
