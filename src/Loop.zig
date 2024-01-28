@@ -81,14 +81,18 @@ pub fn run(self: *Loop) !void {
 
         // status input
         if (fds[2].revents & os.POLL.IN != 0) {
-            var buf: [4096]u8 = undefined;
-            var line = try reader.readUntilDelimiter(&buf, '\n');
-
             for (state.wayland.monitors.items) |monitor| {
                 if (monitor.bar) |bar| {
+                    if (!bar.configured) {
+                        continue;
+                    }
+
+                    var buf: [4096]u8 = undefined;
+                    var line = try reader.readUntilDelimiter(&buf, '\n');
+
                     render.renderText(bar, line) catch |err| {
                         log.err("renderText failed for monitor {}: {s}",
-                                .{monitor.globalName, @errorName(err)});
+                            .{monitor.globalName, @errorName(err)});
                         continue;
                     };
 
