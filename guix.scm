@@ -17,7 +17,7 @@
                      (prepend utf8proc)))))
 
 (package
-  (name "levee")
+  (name "creek")
   (version "0.1.3")
   (source (local-file "." "git-checkout"
                       #:recursive? #t))
@@ -34,7 +34,7 @@
       wayland
       wayland-protocols
       zig))
-  (home-page "https://github.com/nmeum/levee")
+  (home-page "https://github.com/nmeum/creek")
   (synopsis "A minimalistic and malleable status bar for the River compositor.")
   (description "")
   (license license:expat))

@@ -24,7 +24,7 @@ pub fn resize(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
     self.width = width;
     self.height = height;
 
-    const fd = try os.memfd_create("levee-shm", os.linux.MFD.CLOEXEC);
+    const fd = try os.memfd_create("creek-shm", os.linux.MFD.CLOEXEC);
     defer os.close(fd);
 
     const stride = width * 4;

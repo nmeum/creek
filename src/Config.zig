@@ -68,19 +68,19 @@ fn stringEnv(def: []const u8, key: []const u8) ![:0]const u8 {
 }
 
 pub fn init() !Config {
-    var font_name = try stringEnv("monospace:size=14", "LEVEE_FONT");
+    var font_name = try stringEnv("monospace:size=14", "CREEK_FONT");
     defer state.gpa.free(font_name);
     var font_names = [_][*:0]const u8{font_name};
 
-    const height = try numberEnv(32, "LEVEE_HEIGHT");
-    const border = try numberEnv(2, "LEVEE_BORDER");
+    const height = try numberEnv(32, "CREEK_HEIGHT");
+    const border = try numberEnv(2, "CREEK_BORDER");
 
     return Config{
         .height = @intCast(u16, height),
-        .normalBgColor = try colorEnv("0x282828", "LEVEE_NORMAL_BG"),
-        .normalFgColor = try colorEnv("0xb8b8b8", "LEVEE_NORMAL_FG"),
-        .focusBgColor = try colorEnv("0x7cafc2", "LEVEE_FOCUS_BG"),
-        .focusFgColor = try colorEnv("0x181818", "LEVEE_FOCUS_FG"),
+        .normalBgColor = try colorEnv("0x282828", "CREEK_NORMAL_BG"),
+        .normalFgColor = try colorEnv("0xb8b8b8", "CREEK_NORMAL_FG"),
+        .focusBgColor = try colorEnv("0x7cafc2", "CREEK_FOCUS_BG"),
+        .focusFgColor = try colorEnv("0x181818", "CREEK_FOCUS_FG"),
         .border = @intCast(u15, border),
         .font = try fcft.Font.fromName(&font_names, null),
     };

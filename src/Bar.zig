@@ -60,7 +60,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.background.viewport = try viewporter.getViewport(self.background.surface);
     self.background.buffer = try spb_manager.createU32RgbaBuffer(toRgba(bg_color.red), toRgba(bg_color.green), toRgba(bg_color.blue), 0xffffffff);
 
-    self.layer_surface = try layer_shell.getLayerSurface(self.background.surface, monitor.output, .top, "levee");
+    self.layer_surface = try layer_shell.getLayerSurface(self.background.surface, monitor.output, .top, "creek");
 
     self.title = try Widget.init(self.background.surface);
     self.tags = try Widget.init(self.background.surface);
