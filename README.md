@@ -22,15 +22,19 @@ On the right-hand side, the current time is shown, this is information is genera
 
 ### Build
 
-This software is intended to be installed using [Guix]:
+Since Zig is presently rather unstable, this software relies heavily on [Guix].
+Similar to [Nix], Guix is a functional package manager which enables long-term reproducible builds.
+Unfortunately, Guix still packages Zig version 0.10.1, hence it might be challenging to build creek without Guix.
+
+In order to install creek using [Guix] run:
 
     $ git clone --recursive https://git.8pit.net/creek.git
     $ cd creek
-    $ guix package -f guix.scm
+    $ guix time-machine -C channels.scm -- package -f guix.scm
 
 If you want to hack on creek using Guix:
 
-    $ guix shell -D -f guix.scm
+    $ guix time-machine -C channels.scm -- shell -D -f guix.scm
 
 ### Configuration
 
@@ -67,6 +71,7 @@ Note that for more complex setups, a shell script may [not be the best option](h
 [levee]: https://sr.ht/~andreafeletto/levee
 [levee modules]: https://git.sr.ht/~andreafeletto/levee/tree/v0.1.3/item/src/modules
 [xdg-activation]: https://wayland.app/protocols/xdg-activation-v1
+[Nix]: https://nixos.org/
 [Guix]: https://guix.gnu.org/
 [zig]: https://ziglang.org/
 [wayland]: https://wayland.freedesktop.org/
