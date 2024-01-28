@@ -65,6 +65,10 @@ fn seatListener(
                     }
                     seat.mtx.unlock();
 
+                    if (!bar.configured) {
+                        return;
+                    }
+
                     render.renderTitle(bar, seat.window_title) catch |err| {
                         log.err("renderTitle failed for monitor {}: {s}",
                                .{bar.monitor.globalName, @errorName(err)});
