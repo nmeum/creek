@@ -43,7 +43,6 @@ Presently, the following variables can be set:
 
 * `CREEK_FONT`: The font used in the status bar (e.g. `monospace:size=14`)
 * `CREEK_HEIGHT`: The total height of the status bar
-* `CREEK_BORDER`: Size of the border used to denote an active tag
 * `CREEK_NORMAL_BG`: Normal background color
 * `CREEK_NORMAL_FG`: Normal foreground color
 * `CREEK_FOCUS_BG`: Background color for focused tags

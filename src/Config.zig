@@ -15,7 +15,6 @@ normalBgColor: pixman.Color,
 normalFgColor: pixman.Color,
 focusBgColor: pixman.Color,
 focusFgColor: pixman.Color,
-border: u15,
 font: *fcft.Font,
 
 fn parseColor(str: []const u8) !pixman.Color {
@@ -73,15 +72,12 @@ pub fn init() !Config {
     var font_names = [_][*:0]const u8{font_name};
 
     const height = try numberEnv(32, "CREEK_HEIGHT");
-    const border = try numberEnv(2, "CREEK_BORDER");
-
     return Config{
         .height = @intCast(u16, height),
         .normalBgColor = try colorEnv("0x282828", "CREEK_NORMAL_BG"),
         .normalFgColor = try colorEnv("0xb8b8b8", "CREEK_NORMAL_FG"),
         .focusBgColor = try colorEnv("0x7cafc2", "CREEK_FOCUS_BG"),
         .focusFgColor = try colorEnv("0x181818", "CREEK_FOCUS_FG"),
-        .border = @intCast(u15, border),
         .font = try fcft.Font.fromName(&font_names, null),
     };
 }
