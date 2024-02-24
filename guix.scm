@@ -9,13 +9,6 @@
              (gnu packages fontutils)
              (gnu packages textutils))
 
-(define fcft-utf8
-  (package
-    (inherit fcft)
-    (native-inputs
-      (modify-inputs (package-native-inputs fcft)
-                     (prepend utf8proc)))))
-
 (package
   (name "creek")
   (version "0.2.0")
@@ -29,7 +22,7 @@
   (native-inputs
     (list
       pixman
-      fcft-utf8
+      fcft
       pkg-config
       wayland
       wayland-protocols
