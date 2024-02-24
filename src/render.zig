@@ -234,7 +234,7 @@ fn renderTag(
         const box_color = if (tag.focused) blk: {
             break :blk &state.config.normalBgColor;
         } else blk: {
-            break :blk &state.config.normalFgColor;
+            break :blk tag.glyphColor();
         };
 
         _ = pixman.Image.fillRectangles(.over, pix, box_color, 1, &[_]pixman.Rectangle16{box});
@@ -247,7 +247,7 @@ fn renderTag(
                 .height = box.height - (2 * border),
             };
 
-            const inner_color = &state.config.normalBgColor;
+            const inner_color = tag.outerColor();
             _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &[_]pixman.Rectangle16{inner});
         }
     }
