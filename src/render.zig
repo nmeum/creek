@@ -34,7 +34,7 @@ pub fn renderTags(bar: *Bar) !void {
     // Separator tag to visually separate last focused tag from
     // focused window title (both use the same background color).
     const offset = @intCast(i16, bar.height * tags.len);
-    try renderTag(buffer.pix.?, &Tag{.label = '|'}, bar.height, offset);
+    try renderTag(buffer.pix.?, &Tag{ .label = '|' }, bar.height, offset);
 
     bar.tags_width = width;
     surface.setBufferScale(bar.monitor.scale);
@@ -217,18 +217,39 @@ fn renderTag(
     const outer_color = tag.outerColor();
     _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
 
-    const border = state.config.border;
-    const inner = [_]pixman.Rectangle16{
-        .{
-            .x = offset + border,
-            .y = border,
-            .width = size - 2 * border,
-            .height = size - 2 * border,
-        },
-    };
-    const inner_color = &state.config.normalBgColor;
-    if (!(tag.focused or tag.urgent) and tag.occupied) {
-        _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &inner);
+    if (tag.occupied) {
+        const font_height = @intCast(u16, state.config.font.height);
+
+        // Constants taken from dwm-6.3 drawbar function.
+        const boxs = @intCast(i16, font_height / 9);
+        const boxw = font_height / 6 + 2;
+
+        const box = pixman.Rectangle16{
+            .x = offset + boxs,
+            .y = boxs,
+            .width = boxw,
+            .height = boxw,
+        };
+
+        const box_color = if (tag.focused) blk: {
+            break :blk &state.config.normalBgColor;
+        } else blk: {
+            break :blk &state.config.normalFgColor;
+        };
+
+        _ = pixman.Image.fillRectangles(.over, pix, box_color, 1, &[_]pixman.Rectangle16{box});
+        if (!tag.focused) {
+            const border = 1; // size of the border
+            const inner = pixman.Rectangle16{
+                .x = box.x + border,
+                .y = box.y + border,
+                .width = box.width - (2 * border),
+                .height = box.height - (2 * border),
+            };
+
+            const inner_color = &state.config.normalBgColor;
+            _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &[_]pixman.Rectangle16{inner});
+        }
     }
 
     const glyph_color = tag.glyphColor();

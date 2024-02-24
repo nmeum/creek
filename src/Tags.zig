@@ -26,8 +26,6 @@ pub const Tag = struct {
             return &state.config.focusBgColor;
         } else if (self.urgent) {
             return &state.config.normalFgColor;
-        } else if (self.occupied) {
-            return &state.config.focusBgColor;
         } else {
             return &state.config.normalBgColor;
         }
