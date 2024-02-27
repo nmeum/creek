@@ -5,7 +5,6 @@ const os = std.os;
 const io = std.io;
 
 const render = @import("render.zig");
-const utils = @import("utils.zig");
 const Loop = @This();
 
 const state = &@import("root").state;

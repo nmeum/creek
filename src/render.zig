@@ -1,5 +1,6 @@
 const std = @import("std");
 const mem = std.mem;
+const unicode = std.unicode;
 
 const fcft = @import("fcft");
 const pixman = @import("pixman");
@@ -8,11 +9,24 @@ const time = @cImport(@cInclude("time.h"));
 const Buffer = @import("Buffer.zig");
 const Bar = @import("Bar.zig");
 const Tag = @import("Tags.zig").Tag;
-const utils = @import("utils.zig");
 
 const state = &@import("root").state;
 
 pub const RenderFn = fn (*Bar) anyerror!void;
+
+pub fn toUtf8(gpa: mem.Allocator, bytes: []const u8) ![]u32 {
+    const utf8 = try unicode.Utf8View.init(bytes);
+    var iter = utf8.iterator();
+
+    var runes = try gpa.alloc(u32, bytes.len);
+    var i: usize = 0;
+    while (iter.nextCodepoint()) |rune| : (i += 1) {
+        runes[i] = rune;
+    }
+
+    runes = gpa.resize(runes, i).?;
+    return runes;
+}
 
 pub fn renderTags(bar: *Bar) !void {
     const surface = bar.tags.surface;
@@ -66,7 +80,7 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
     var runes: ?[]u32 = null;
     if (title) |t| {
         if (t.len > 0)
-            runes = try utils.toUtf8(state.gpa, t);
+            runes = try toUtf8(state.gpa, t);
     }
     defer {
         if (runes) |r| state.gpa.free(r);
@@ -141,7 +155,7 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
     const shm = state.wayland.shm.?;
 
     // utf8 encoding
-    const runes = try utils.toUtf8(state.gpa, text);
+    const runes = try toUtf8(state.gpa, text);
     defer state.gpa.free(runes);
 
     // rasterize
