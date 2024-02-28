@@ -4,13 +4,24 @@ const io = std.io;
 const log = std.log;
 const mem = std.mem;
 const os = std.os;
+const fmt = std.fmt;
 const process = std.process;
 
 const fcft = @import("fcft");
+const pixman = @import("pixman");
 
-const Config = @import("Config.zig");
+const flags = @import("flags.zig");
 const Loop = @import("Loop.zig");
 const Wayland = @import("Wayland.zig");
+
+pub const Config = struct {
+    height: u16,
+    normalFgColor: pixman.Color,
+    normalBgColor: pixman.Color,
+    focusFgColor: pixman.Color,
+    focusBgColor: pixman.Color,
+    font: *fcft.Font,
+};
 
 pub const State = struct {
     gpa: mem.Allocator,
@@ -21,23 +32,96 @@ pub const State = struct {
 
 pub var state: State = undefined;
 
+fn parseColor(str: []const u8) !pixman.Color {
+    // Color string needs to contain a base prefix.
+    // For example: 0xRRGGBB.
+    const val = try fmt.parseInt(u24, str, 0);
+
+    const r = @truncate(u8, val >> 16);
+    const g = @truncate(u8, val >> 8);
+    const b = @truncate(u8, val);
+
+    return pixman.Color{
+        .red = @as(u16, r) << 8 | 0xff,
+        .green = @as(u16, g) << 8 | 0xff,
+        .blue = @as(u16, b) << 8 | 0xff,
+        .alpha = 0xffff,
+    };
+}
+
+fn parseColorFlag(flg: ?[]const u8, def: []const u8) !pixman.Color {
+    if (flg) |raw| {
+        return parseColor(raw);
+    } else {
+        return parseColor(def);
+    }
+}
+
+fn parseFlags(args: [][*:0]u8) !Config {
+    const result = flags.parser([*:0]const u8, &.{
+        .{ .name = "hg", .kind = .arg },
+        .{ .name = "fn", .kind = .arg },
+        .{ .name = "nf", .kind = .arg },
+        .{ .name = "nb", .kind = .arg },
+        .{ .name = "ff", .kind = .arg },
+        .{ .name = "fb", .kind = .arg },
+    }).parse(args) catch {
+        usage();
+    };
+
+    var height: u16 = 32;
+    if (result.flags.@"hg") |raw| {
+        height = try fmt.parseUnsigned(u16, raw, 10);
+    }
+
+    var font_names = if (result.flags.@"fn") |raw| blk: {
+        break :blk [_][*:0]const u8{raw};
+    } else blk: {
+        break :blk [_][*:0]const u8{"monospace:size=14"};
+    };
+
+    return Config{
+        .height = @intCast(u16, height),
+        .normalFgColor = try parseColorFlag(result.flags.@"nf", "0xb8b8b8"),
+        .normalBgColor = try parseColorFlag(result.flags.@"nb", "0x282828"),
+        .focusFgColor = try parseColorFlag(result.flags.@"ff", "0x181818"),
+        .focusBgColor = try parseColorFlag(result.flags.@"fb", "0x7cafc2"),
+        .font = try fcft.Font.fromName(&font_names, null),
+    };
+}
+
+pub fn usage() noreturn {
+    const desc =
+        \\usage: creek [-hg HEIGHT] [-fn FONT] [-nf COLOR] [-nb COLOR]
+        \\             [-ff COLOR] [-fb COLOR]
+        \\
+    ;
+
+    io.getStdErr().writeAll(desc) catch |err| {
+        std.debug.panic("{s}", .{@errorName(err)});
+    };
+
+    os.exit(1);
+}
+
 pub fn main() anyerror!void {
     var gpa: heap.GeneralPurposeAllocator(.{}) = .{};
     defer _ = gpa.deinit();
 
     _ = fcft.init(.auto, false, .warning);
 
-    // initialization
     state.gpa = gpa.allocator();
-    state.config = try Config.init();
     state.wayland = try Wayland.init();
     state.loop = try Loop.init();
+    state.config = parseFlags(os.argv[1..]) catch |err| {
+        log.err("Option parsing failed with: {s}", .{@errorName(err)});
+        usage();
+    };
 
     defer {
         state.wayland.deinit();
     }
 
-    // event loop
     try state.wayland.registerGlobals();
     try state.loop.run();
 }

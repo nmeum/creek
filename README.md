@@ -10,7 +10,7 @@ Additionally, the following new features have been added:
 
 * Support for tracking the current window title in the status bar
 * Highlighting of tags containing urgent windows (see [xdg-activation])
-* Basic run-time configuration support via environment variables
+* Basic run-time configuration support via command-line flags
 
 ### Screenshot
 
@@ -38,15 +38,18 @@ If you want to hack on creek using Guix:
 
 ### Configuration
 
-This version of creek can be configured using several environment variable.
-Presently, the following variables can be set:
+This version of creek can be configured using several command-line options:
 
-* `CREEK_FONT`: The font used in the status bar (e.g. `monospace:size=14`)
-* `CREEK_HEIGHT`: The total height of the status bar
-* `CREEK_NORMAL_BG`: Normal background color
-* `CREEK_NORMAL_FG`: Normal foreground color
-* `CREEK_FOCUS_BG`: Background color for focused tags
-* `CREEK_NORMAL_FG`: Foreground color for focused tags
+* `-fn`: The font used in the status bar
+* `-hg`: The total height of the status bar
+* `-nf`: Normal foreground color
+* `-nb`: Normal background color
+* `-ff`: Foreground color for focused tags
+* `-fb`: Background color for focused tags
+
+Example:
+
+    $ creek -fn Terminus:size=12 -hg 18 -nf 0xffffff -nb 0x000000
 
 ### Usage Example
 
