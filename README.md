@@ -53,7 +53,7 @@ Example:
 
 ### Usage Example
 
-In order to display the current time in the top-left corner of the status bar invoke creek as follows:
+In order to display the current time in the top-right corner, invoke creek as follows:
 
     $ ( while date; do sleep 1; done ) | creek
 
