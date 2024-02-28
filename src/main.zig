@@ -69,24 +69,26 @@ fn parseFlags(args: [][*:0]u8) !Config {
         usage();
     };
 
-    var height: u16 = 32;
-    if (result.flags.@"hg") |raw| {
-        height = try fmt.parseUnsigned(u16, raw, 10);
-    }
-
     var font_names = if (result.flags.@"fn") |raw| blk: {
         break :blk [_][*:0]const u8{raw};
     } else blk: {
         break :blk [_][*:0]const u8{"monospace:size=14"};
     };
 
+    const font = try fcft.Font.fromName(&font_names, null);
+    const height: u16 = if (result.flags.@"hg") |raw| blk: {
+        break :blk try fmt.parseUnsigned(u16, raw, 10);
+    } else blk: {
+        break :blk @floatToInt(u16, @intToFloat(f32, font.height) * 1.5);
+    };
+
     return Config{
+        .font = try fcft.Font.fromName(&font_names, null),
         .height = @intCast(u16, height),
         .normalFgColor = try parseColorFlag(result.flags.@"nf", "0xb8b8b8"),
         .normalBgColor = try parseColorFlag(result.flags.@"nb", "0x282828"),
         .focusFgColor = try parseColorFlag(result.flags.@"ff", "0x181818"),
         .focusBgColor = try parseColorFlag(result.flags.@"fb", "0x7cafc2"),
-        .font = try fcft.Font.fromName(&font_names, null),
     };
 }
 
