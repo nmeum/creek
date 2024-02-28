@@ -11,7 +11,6 @@ const zwlr = @import("wayland").client.zwlr;
 const zriver = @import("wayland").client.zriver;
 
 const Bar = @import("Bar.zig");
-const Event = @import("Loop.zig").Event;
 const Input = @import("Input.zig");
 const Monitor = @import("Monitor.zig");
 const Seat = @import("Seat.zig").Seat;
