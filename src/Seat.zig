@@ -36,6 +36,27 @@ pub fn destroy(self: *Seat) void {
     state.gpa.destroy(self);
 }
 
+fn updateTitle(self: *Seat, data: [*:0]const u8) void {
+    var title = std.mem.sliceTo(data, 0);
+
+    self.mtx.lock();
+    defer self.mtx.unlock();
+
+    if (self.window_title) |t| {
+        state.gpa.free(t);
+    }
+    if (title.len == 0) {
+        self.window_title = null;
+    } else {
+        const vz = state.gpa.allocSentinel(u8, title.len, 0) catch |err| {
+            log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
+            return;
+        };
+        std.mem.copy(u8, vz, title);
+        self.window_title = vz;
+    }
+}
+
 fn seatListener(
     _: *zriver.SeatStatusV1,
     event: zriver.SeatStatusV1.Event,
@@ -47,24 +68,7 @@ fn seatListener(
         .focused_view => |data| {
             for (state.wayland.monitors.items) |monitor| {
                 if (monitor.bar) |bar| {
-                    var title = std.mem.sliceTo(data.title, 0);
-
-                    seat.mtx.lock();
-                    if (seat.window_title) |t| {
-                        state.gpa.free(t);
-                    }
-                    if (title.len == 0) {
-                        seat.window_title = null;
-                    } else {
-                        const vz = state.gpa.allocSentinel(u8, title.len, 0) catch |err| {
-                            log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
-                            return seat.mtx.unlock();
-                        };
-                        std.mem.copy(u8, vz, title);
-                        seat.window_title = vz;
-                    }
-                    seat.mtx.unlock();
-
+                    seat.updateTitle(data.title);
                     if (!bar.configured) {
                         return;
                     }
