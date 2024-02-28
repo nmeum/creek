@@ -1,4 +1,6 @@
 // Zero allocation argument parsing for unix-like systems (taken from River).
+// Includes a minor modifications for error handling on unknown flags.
+//
 // Released under the Zero Clause BSD (0BSD) license:
 //
 // Copyright 2023 Isaac Freund
@@ -70,8 +72,15 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
 
             var i: usize = 0;
             outer: while (i < args.len) : (i += 1) {
+                const arg = args[i];
+                if (arg[0] != '-') {
+                    continue;
+                }
+
+                var flag_found = false;
                 inline for (flags) |flag| {
-                    if (mem.eql(u8, "-" ++ flag.name, mem.span(args[i]))) {
+                    if (mem.eql(u8, flag.name, mem.span(arg + 1))) {
+                        flag_found = true;
                         switch (flag.kind) {
                             .boolean => @field(result_flags, flag.name) = true,
                             .arg => {
@@ -86,6 +95,10 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
                         }
                         continue :outer;
                     }
+                }
+                if (!flag_found) {
+                    std.log.err("option '{s}' is unknown", .{arg});
+                    return error.UnknownFlag;
                 }
                 break;
             }
