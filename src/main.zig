@@ -111,6 +111,9 @@ pub fn main() anyerror!void {
     defer _ = gpa.deinit();
 
     _ = fcft.init(.auto, false, .warning);
+    if (fcft.capabilities() & fcft.Capabilities.text_run_shaping == 0) {
+        @panic("Support for text run shaping required in fcft and not present");
+    }
 
     state.gpa = gpa.allocator();
     state.wayland = try Wayland.init();
