@@ -72,7 +72,7 @@ fn parseFlags(args: [][*:0]u8) !Config {
     var font_names = if (result.flags.@"fn") |raw| blk: {
         break :blk [_][*:0]const u8{raw};
     } else blk: {
-        break :blk [_][*:0]const u8{"monospace:size=14"};
+        break :blk [_][*:0]const u8{"monospace:size=10"};
     };
 
     const font = try fcft.Font.fromName(&font_names, null);
