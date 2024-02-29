@@ -59,12 +59,12 @@ fn parseColorFlag(flg: ?[]const u8, def: []const u8) !pixman.Color {
 
 fn parseFlags(args: [][*:0]u8) !Config {
     const result = flags.parser([*:0]const u8, &.{
-        .{ .name = "hg", .kind = .arg },
-        .{ .name = "fn", .kind = .arg },
-        .{ .name = "nf", .kind = .arg },
-        .{ .name = "nb", .kind = .arg },
-        .{ .name = "ff", .kind = .arg },
-        .{ .name = "fb", .kind = .arg },
+        .{ .name = "hg", .kind = .arg }, // height
+        .{ .name = "fn", .kind = .arg }, // font name
+        .{ .name = "nf", .kind = .arg }, // normal foreground
+        .{ .name = "nb", .kind = .arg }, // normal background
+        .{ .name = "ff", .kind = .arg }, // focused foreground
+        .{ .name = "fb", .kind = .arg }, // focused background
     }).parse(args) catch {
         usage();
     };
