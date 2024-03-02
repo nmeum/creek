@@ -228,7 +228,7 @@ fn renderTag(
     const outer = [_]pixman.Rectangle16{
         .{ .x = offset, .y = 0, .width = size, .height = size },
     };
-    const outer_color = tag.outerColor();
+    const outer_color = tag.bgColor();
     _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
 
     if (tag.occupied) {
@@ -248,7 +248,7 @@ fn renderTag(
         const box_color = if (tag.focused) blk: {
             break :blk &state.config.normalBgColor;
         } else blk: {
-            break :blk tag.glyphColor();
+            break :blk tag.fgColor();
         };
 
         _ = pixman.Image.fillRectangles(.over, pix, box_color, 1, &[_]pixman.Rectangle16{box});
@@ -261,12 +261,12 @@ fn renderTag(
                 .height = box.height - (2 * border),
             };
 
-            const inner_color = tag.outerColor();
+            const inner_color = tag.bgColor();
             _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &[_]pixman.Rectangle16{inner});
         }
     }
 
-    const glyph_color = tag.glyphColor();
+    const glyph_color = tag.fgColor();
     const font = state.config.font;
     var char = pixman.Image.createSolidFill(glyph_color).?;
     const glyph = try font.rasterizeCharUtf32(tag.label, .default);
