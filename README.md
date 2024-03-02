@@ -14,7 +14,7 @@ Additionally, the following new features have been added:
 
 ### Screenshot
 
-![Screenshot of River with a creek status bar](https://files.8pit.net/img/levee-screenshot-20240128.png)
+![Screenshot of River with a creek status bar](https://files.8pit.net/img/creek-screenshot-20240302.png)
 
 The screenshot features three active tags: tag 2 is currently focused and has one active window, tag 4 is not focused but is occupied (i.e. has windows), and tag 9 has an urgent window.
 In the middle of the status bar, the current title of the selected window on the focused tag is displayed.
