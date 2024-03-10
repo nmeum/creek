@@ -11,7 +11,7 @@
 
 (package
   (name "creek")
-  (version "0.2.0")
+  (version "0.3.0")
   (source (local-file "." "git-checkout"
                       #:recursive? #t))
   (build-system zig-build-system)
