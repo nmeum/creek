@@ -4,6 +4,7 @@ const Mutex = std.Thread.Mutex;
 
 const wl = @import("wayland").client.wl;
 
+const Monitor = @import("Monitor.zig").Monitor;
 const render = @import("render.zig");
 const zriver = @import("wayland").client.zriver;
 const state = &@import("root").state;
@@ -38,6 +39,16 @@ pub fn destroy(self: *Seat) void {
 
     self.seat_status.destroy();
     state.gpa.destroy(self);
+}
+
+pub fn focusedMonitor(self: *Seat) ?*Monitor {
+    for (state.wayland.monitors.items) |monitor| {
+        if (monitor.output == self.current_output) {
+            return monitor;
+        }
+    }
+
+    return null;
 }
 
 fn updateTitle(self: *Seat, data: [*:0]const u8) void {
