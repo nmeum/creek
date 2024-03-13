@@ -2,6 +2,8 @@ const std = @import("std");
 const log = std.log;
 const Mutex = std.Thread.Mutex;
 
+const wl = @import("wayland").client.wl;
+
 const render = @import("render.zig");
 const zriver = @import("wayland").client.zriver;
 const state = &@import("root").state;
@@ -9,6 +11,7 @@ const state = &@import("root").state;
 pub const Seat = @This();
 
 seat_status: *zriver.SeatStatusV1,
+current_output: ?*wl.Output,
 window_title: ?[:0]u8,
 mtx: Mutex,
 
@@ -18,6 +21,7 @@ pub fn create() !*Seat {
     const seat = state.wayland.seat_wl.?;
 
     self.mtx = Mutex{};
+    self.current_output = null;
     self.window_title = null;
     self.seat_status = try manager.getRiverSeatStatus(seat);
     self.seat_status.setListener(*Seat, seatListener, self);
@@ -63,8 +67,19 @@ fn seatListener(
     seat: *Seat,
 ) void {
     switch (event) {
-        .focused_output => |_| {},
-        .unfocused_output => |_| {},
+        .focused_output => |data| {
+            for (state.wayland.monitors.items) |monitor| {
+                if (monitor.output == data.output) {
+                    seat.current_output = monitor.output;
+                    return;
+                }
+            }
+
+            log.err("seatListener: couldn't find focused output", .{});
+        },
+        .unfocused_output => |_| {
+            seat.current_output = null;
+        },
         .focused_view => |data| {
             for (state.wayland.monitors.items) |monitor| {
                 if (monitor.bar) |bar| {
