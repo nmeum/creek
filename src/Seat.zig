@@ -22,7 +22,7 @@ mtx: Mutex,
 pub fn create() !*Seat {
     const self = try state.gpa.create(Seat);
     const manager = state.wayland.status_manager.?;
-    const seat = state.wayland.seat_wl.?;
+    const seat = state.wayland.seat.?;
 
     self.mtx = Mutex{};
     self.current_output = null;

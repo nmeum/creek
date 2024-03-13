@@ -23,8 +23,7 @@ fd: os.fd_t,
 
 compositor: ?*wl.Compositor = null,
 subcompositor: ?*wl.Subcompositor = null,
-seat_wl: ?*wl.Seat = null,
-seat: ?*Seat = null,
+seat: ?*wl.Seat = null,
 shm: ?*wl.Shm = null,
 single_pixel_buffer_manager: ?*wp.SinglePixelBufferManagerV1 = null,
 viewporter: ?*wp.Viewporter = null,
@@ -32,6 +31,7 @@ layer_shell: ?*zwlr.LayerShellV1 = null,
 status_manager: ?*zriver.StatusManagerV1 = null,
 control: ?*zriver.ControlV1 = null,
 
+river_seat: ?*Seat = null,
 monitors: std.ArrayList(*Monitor),
 inputs: std.ArrayList(*Input),
 
@@ -51,7 +51,7 @@ pub fn deinit(self: *Wayland) void {
     for (self.monitors.items) |monitor| monitor.destroy();
     for (self.inputs.items) |input| input.destroy();
 
-    if (self.seat) |s| s.destroy();
+    if (self.river_seat) |s| s.destroy();
     self.monitors.deinit();
     self.inputs.deinit();
 
@@ -63,7 +63,7 @@ pub fn deinit(self: *Wayland) void {
     if (self.layer_shell) |global| global.destroy();
     if (self.status_manager) |global| global.destroy();
     if (self.control) |global| global.destroy();
-    if (self.seat_wl) |global| global.destroy();
+    if (self.seat) |global| global.destroy();
 
     self.display.disconnect();
 }
@@ -132,14 +132,14 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         self.layer_shell = try registry.bind(name, zwlr.LayerShellV1, 1);
     } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
         self.status_manager = try registry.bind(name, zriver.StatusManagerV1, 2);
-        self.seat = try Seat.create(); // TODO: find a better way to do this
+        self.river_seat = try Seat.create(); // TODO: find a better way to do this
     } else if (strcmp(iface, zriver.ControlV1.getInterface().name) == 0) {
         self.control = try registry.bind(name, zriver.ControlV1, 1);
     } else if (strcmp(iface, wl.Output.getInterface().name) == 0) {
         const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
     } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
-        self.seat_wl = try registry.bind(name, wl.Seat, 1);
+        self.seat = try registry.bind(name, wl.Seat, 1);
         const input = try Input.create(registry, name);
         try self.inputs.append(input);
     }

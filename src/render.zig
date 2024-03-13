@@ -226,7 +226,7 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
     if (width != bar.text_width) {
         bar.text_width = width;
 
-        if (state.wayland.seat) |seat| {
+        if (state.wayland.river_seat) |seat| {
             seat.mtx.lock();
             defer seat.mtx.unlock();
 

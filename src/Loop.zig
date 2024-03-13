@@ -80,7 +80,7 @@ pub fn run(self: *Loop) !void {
 
         // status input
         if (fds[2].revents & os.POLL.IN != 0) {
-            if (state.wayland.seat) |seat| {
+            if (state.wayland.river_seat) |seat| {
                 if (seat.focusedBar()) |bar| {
                     seat.status_text = try reader.readUntilDelimiter(&seat.status_buffer, '\n');
                     render.renderText(bar, seat.status_text) catch |err| {
