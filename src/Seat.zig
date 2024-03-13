@@ -88,13 +88,39 @@ fn seatListener(
 
             log.err("seatListener: couldn't find focused output", .{});
         },
-        .unfocused_output => |_| {
+        .unfocused_output => |data| {
+            var monitor: ?*Monitor = null;
+            for (state.wayland.monitors.items) |m| {
+                if (m.output == data.output) {
+                    monitor = m;
+                    break;
+                }
+            }
+
+            if (monitor) |m| {
+                // TODO: add getBar or something
+                if (m.bar) |bar| {
+                    if (bar.configured) {
+                        render.renderTitle(bar, null) catch |err| {
+                            log.err("renderTitle failed for monitor {}: {s}",
+                                .{bar.monitor.globalName, @errorName(err)});
+                            return;
+                        };
+
+                        bar.title.surface.commit();
+                        bar.background.surface.commit();
+                    }
+                }
+            } else {
+                log.err("seatListener: couldn't find unfocused output", .{});
+            }
+
             seat.current_output = null;
         },
         .focused_view => |data| {
-            for (state.wayland.monitors.items) |monitor| {
+            seat.updateTitle(data.title);
+            if (seat.focusedMonitor()) |monitor| {
                 if (monitor.bar) |bar| {
-                    seat.updateTitle(data.title);
                     if (!bar.configured) {
                         return;
                     }

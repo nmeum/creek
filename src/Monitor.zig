@@ -6,7 +6,7 @@ const wl = @import("wayland").client.wl;
 const Bar = @import("Bar.zig");
 const Tags = @import("Tags.zig");
 const Seat = @import("Seat.zig").Seat;
-const Monitor = @This();
+pub const Monitor = @This();
 
 const state = &@import("root").state;
 
