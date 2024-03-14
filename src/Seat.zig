@@ -48,6 +48,16 @@ pub fn destroy(self: *Seat) void {
 }
 
 pub fn focusedMonitor(self: *Seat) ?*Monitor {
+    // If there is no current monitor, e.g. on startup use the first one.
+    //
+    // TODO: Find a better way to do this.
+    if (self.current_output == null) {
+        const items = state.wayland.monitors.items;
+        if (items.len > 0) {
+            return items[0];
+        }
+    }
+
     for (state.wayland.monitors.items) |monitor| {
         if (monitor.output == self.current_output) {
             return monitor;
