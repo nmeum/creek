@@ -4,7 +4,8 @@ const Mutex = std.Thread.Mutex;
 
 const wl = @import("wayland").client.wl;
 
-const Monitor = @import("Monitor.zig").Monitor;
+const Bar = @import("Bar.zig");
+const Monitor = @import("Monitor.zig");
 const render = @import("render.zig");
 const zriver = @import("wayland").client.zriver;
 const state = &@import("root").state;
@@ -51,6 +52,14 @@ pub fn focusedMonitor(self: *Seat) ?*Monitor {
         if (monitor.output == self.current_output) {
             return monitor;
         }
+    }
+
+    return null;
+}
+
+pub fn focusedBar(self: *Seat) ?*Bar {
+    if (self.focusedMonitor()) |m| {
+        return m.confBar();
     }
 
     return null;
@@ -138,17 +147,15 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
 
 fn focusedView(self: *Seat, title: [*:0]const u8) void {
     self.updateTitle(title);
-    if (self.focusedMonitor()) |monitor| {
-        if (monitor.confBar()) |bar| {
-            render.renderTitle(bar, self.window_title) catch |err| {
-                log.err("renderTitle failed for monitor {}: {s}",
-                    .{bar.monitor.globalName, @errorName(err)});
-                return;
-            };
+    if (self.focusedBar()) |bar| {
+        render.renderTitle(bar, self.window_title) catch |err| {
+            log.err("renderTitle failed for monitor {}: {s}",
+                .{bar.monitor.globalName, @errorName(err)});
+            return;
+        };
 
-            bar.title.surface.commit();
-            bar.background.surface.commit();
-        }
+        bar.title.surface.commit();
+        bar.background.surface.commit();
     }
 }
 
