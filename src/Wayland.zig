@@ -13,7 +13,7 @@ const zriver = @import("wayland").client.zriver;
 const Bar = @import("Bar.zig");
 const Input = @import("Input.zig");
 const Monitor = @import("Monitor.zig");
-const Seat = @import("Seat.zig").Seat;
+const Seat = @import("Seat.zig");
 const Wayland = @This();
 
 const state = &@import("root").state;
