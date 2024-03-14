@@ -38,6 +38,16 @@ pub fn destroy(self: *Monitor) void {
     state.gpa.destroy(self);
 }
 
+pub fn confBar(self: *Monitor) ?*Bar {
+    if (self.bar) |bar| {
+        if (bar.configured) {
+            return bar;
+        }
+    }
+
+    return null;
+}
+
 fn listener(_: *wl.Output, event: wl.Output.Event, monitor: *Monitor) void {
     switch (event) {
         .scale => |scale| {

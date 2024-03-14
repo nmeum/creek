@@ -87,8 +87,7 @@ fn focusedOutput(self: *Seat, output: *wl.Output) void {
     }
 
     if (monitor) |m| {
-        if (m.bar) |bar| {
-            if (bar.configured) {
+        if (m.confBar()) |bar| {
                 self.current_output = m.output;
                 render.renderText(bar, self.status_text) catch |err| {
                     log.err("renderText failed for monitor {}: {s}",
@@ -96,9 +95,8 @@ fn focusedOutput(self: *Seat, output: *wl.Output) void {
                     return;
                 };
 
-                bar.text.surface.commit();
-                bar.background.surface.commit();
-            }
+            bar.text.surface.commit();
+            bar.background.surface.commit();
         }
     } else {
         log.err("seatListener: couldn't find focused output", .{});
@@ -115,25 +113,21 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
     }
 
     if (monitor) |m| {
-        // TODO: add getBar or something
-        if (m.bar) |bar| {
-            if (bar.configured) {
-                render.resetText(bar) catch |err| {
-                    log.err("renderTitle failed for monitor {}: {s}",
-                        .{bar.monitor.globalName, @errorName(err)});
+        if (m.confBar()) |bar| {
+            render.resetText(bar) catch |err| {
+                log.err("renderTitle failed for monitor {}: {s}",
+                    .{bar.monitor.globalName, @errorName(err)});
+            };
+            bar.text.surface.commit();
 
-                    };
-                bar.text.surface.commit();
+            render.renderTitle(bar, null) catch |err| {
+                log.err("renderTitle failed for monitor {}: {s}",
+                    .{bar.monitor.globalName, @errorName(err)});
+                return;
+            };
 
-                render.renderTitle(bar, null) catch |err| {
-                    log.err("renderTitle failed for monitor {}: {s}",
-                        .{bar.monitor.globalName, @errorName(err)});
-                    return;
-                };
-
-                bar.title.surface.commit();
-                bar.background.surface.commit();
-            }
+            bar.title.surface.commit();
+            bar.background.surface.commit();
         }
     } else {
         log.err("seatListener: couldn't find unfocused output", .{});
@@ -145,11 +139,7 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
 fn focusedView(self: *Seat, title: [*:0]const u8) void {
     self.updateTitle(title);
     if (self.focusedMonitor()) |monitor| {
-        if (monitor.bar) |bar| {
-            if (!bar.configured) {
-                return;
-            }
-
+        if (monitor.confBar()) |bar| {
             render.renderTitle(bar, self.window_title) catch |err| {
                 log.err("renderTitle failed for monitor {}: {s}",
                     .{bar.monitor.globalName, @errorName(err)});
