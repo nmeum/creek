@@ -87,10 +87,8 @@ pub fn run(self: *Loop) !void {
                             continue;
                         }
 
-                        var buf: [4096]u8 = undefined;
-                        var line = try reader.readUntilDelimiter(&buf, '\n');
-
-                        render.renderText(bar, line) catch |err| {
+                        seat.status_text = try reader.readUntilDelimiter(&seat.status_buffer, '\n');
+                        render.renderText(bar, seat.status_text) catch |err| {
                             log.err("renderText failed for monitor {}: {s}",
                                 .{monitor.globalName, @errorName(err)});
                             continue;

@@ -150,6 +150,26 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
     surface.attach(buffer.buffer, 0, 0);
 }
 
+pub fn resetText(bar: *Bar) !void {
+    const surface = bar.text.surface;
+    const shm = state.wayland.shm.?;
+
+    const buffers = &bar.text.buffers;
+    const buffer = try Buffer.nextBuffer(buffers, shm, bar.text_width, bar.height);
+    if (buffer.buffer == null) return;
+    buffer.busy = true;
+
+    const bg_area = [_]pixman.Rectangle16{
+        .{ .x = 0, .y = 0, .width = bar.text_width, .height = bar.height },
+    };
+    var bg_color = state.config.normalBgColor;
+    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
+
+    surface.setBufferScale(bar.monitor.scale);
+    surface.damageBuffer(0, 0, bar.text_width, bar.height);
+    surface.attach(buffer.buffer, 0, 0);
+}
+
 pub fn renderText(bar: *Bar, text: []const u8) !void {
     const surface = bar.text.surface;
     const shm = state.wayland.shm.?;

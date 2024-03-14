@@ -14,6 +14,8 @@ pub const Seat = @This();
 seat_status: *zriver.SeatStatusV1,
 current_output: ?*wl.Output,
 window_title: ?[:0]u8,
+status_buffer: [4096]u8 = undefined,
+status_text: []u8,
 mtx: Mutex,
 
 pub fn create() !*Seat {
@@ -26,6 +28,9 @@ pub fn create() !*Seat {
     self.window_title = null;
     self.seat_status = try manager.getRiverSeatStatus(seat);
     self.seat_status.setListener(*Seat, seatListener, self);
+
+    self.status_text = self.status_buffer[0..0];
+    std.debug.assert(self.status_text.len == 0);
 
     return self;
 }
@@ -79,14 +84,31 @@ fn seatListener(
 ) void {
     switch (event) {
         .focused_output => |data| {
-            for (state.wayland.monitors.items) |monitor| {
-                if (monitor.output == data.output) {
-                    seat.current_output = monitor.output;
-                    return;
+            var monitor: ?*Monitor = null;
+            for (state.wayland.monitors.items) |m| {
+                if (m.output == data.output) {
+                    monitor = m;
+                    break;
                 }
             }
 
-            log.err("seatListener: couldn't find focused output", .{});
+            if (monitor) |m| {
+                if (m.bar) |bar| {
+                    if (bar.configured) {
+                        seat.current_output = m.output;
+                        render.renderText(bar, seat.status_text) catch |err| {
+                            log.err("renderText failed for monitor {}: {s}",
+                                .{m.globalName, @errorName(err)});
+                            return;
+                        };
+
+                        bar.text.surface.commit();
+                        bar.background.surface.commit();
+                    }
+                }
+            } else {
+                log.err("seatListener: couldn't find focused output", .{});
+            }
         },
         .unfocused_output => |data| {
             var monitor: ?*Monitor = null;
@@ -101,6 +123,13 @@ fn seatListener(
                 // TODO: add getBar or something
                 if (m.bar) |bar| {
                     if (bar.configured) {
+                        render.resetText(bar) catch |err| {
+                            log.err("renderTitle failed for monitor {}: {s}",
+                                .{bar.monitor.globalName, @errorName(err)});
+
+                        };
+                        bar.text.surface.commit();
+
                         render.renderTitle(bar, null) catch |err| {
                             log.err("renderTitle failed for monitor {}: {s}",
                                 .{bar.monitor.globalName, @errorName(err)});
