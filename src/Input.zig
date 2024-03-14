@@ -8,7 +8,6 @@ const Input = @This();
 
 const state = &@import("root").state;
 
-seat: *wl.Seat,
 globalName: u32,
 
 pointer: struct {
@@ -19,16 +18,16 @@ pointer: struct {
     surface: ?*wl.Surface,
 },
 
-pub fn create(registry: *wl.Registry, name: u32) !*Input {
+pub fn create(name: u32) !*Input {
     const self = try state.gpa.create(Input);
-    self.seat = try registry.bind(name, wl.Seat, 7);
-    self.globalName = name;
+    const seat = state.wayland.seat.?;
 
+    self.globalName = name;
     self.pointer.pointer = null;
     self.pointer.bar = null;
     self.pointer.surface = null;
 
-    self.seat.setListener(*Input, listener, self);
+    seat.setListener(*Input, listener, self);
     return self;
 }
 
@@ -36,7 +35,6 @@ pub fn destroy(self: *Input) void {
     if (self.pointer.pointer) |pointer| {
         pointer.release();
     }
-    self.seat.release();
     state.gpa.destroy(self);
 }
 
@@ -94,7 +92,7 @@ fn pointerListener(
 
                 const x = @intCast(u32, input.pointer.x);
                 if (x < bar.height * @as(u16, bar.monitor.tags.tags.len)) {
-                    bar.monitor.tags.handleClick(x, input) catch |err| {
+                    bar.monitor.tags.handleClick(x) catch |err| {
                         log.err("handleClick failed for monitor {}: {s}",
                                 .{bar.monitor.globalName, @errorName(err)});
                         return;

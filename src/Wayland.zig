@@ -63,6 +63,7 @@ pub fn deinit(self: *Wayland) void {
     if (self.layer_shell) |global| global.destroy();
     if (self.status_manager) |global| global.destroy();
     if (self.control) |global| global.destroy();
+    // TODO: Do we need to .release() the seat?
     if (self.seat) |global| global.destroy();
 
     self.display.disconnect();
@@ -140,7 +141,6 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         try self.monitors.append(monitor);
     } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
         self.seat = try registry.bind(name, wl.Seat, 1);
-        const input = try Input.create(registry, name);
-        try self.inputs.append(input);
+        try self.inputs.append(try Input.create(name));
     }
 }

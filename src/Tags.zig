@@ -107,7 +107,7 @@ fn outputStatusListener(
     }
 }
 
-pub fn handleClick(self: *Tags, x: u32, input: *Input) !void {
+pub fn handleClick(self: *Tags, x: u32) !void {
     const control = state.wayland.control.?;
 
     if (self.monitor.bar) |bar| {
@@ -121,7 +121,7 @@ pub fn handleClick(self: *Tags, x: u32, input: *Input) !void {
 
         control.addArgument("set-focused-tags");
         control.addArgument(payload);
-        const callback = try control.runCommand(input.seat);
+        const callback = try control.runCommand(state.wayland.seat.?);
         _ = callback;
     }
 }
