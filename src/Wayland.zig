@@ -19,6 +19,7 @@ const Wayland = @This();
 const state = &@import("root").state;
 
 display: *wl.Display,
+registry: *wl.Registry,
 fd: os.fd_t,
 
 compositor: ?*wl.Compositor = null,
@@ -38,9 +39,11 @@ inputs: std.ArrayList(*Input),
 pub fn init() !Wayland {
     const display = try wl.Display.connect(null);
     const wfd = @intCast(os.fd_t, display.getFd());
+    const registry = try display.getRegistry();
 
     return Wayland{
         .display = display,
+        .registry = registry,
         .fd = wfd,
         .monitors = std.ArrayList(*Monitor).init(state.gpa),
         .inputs = std.ArrayList(*Input).init(state.gpa),
@@ -66,16 +69,17 @@ pub fn deinit(self: *Wayland) void {
     // TODO: Do we need to .release() the seat?
     if (self.seat) |global| global.destroy();
 
+    self.registry.destroy();
     self.display.disconnect();
 }
 
 pub fn registerGlobals(self: *Wayland) !void {
-    const registry = try self.display.getRegistry();
-    defer registry.destroy();
+    self.registry.setListener(*Wayland, registryListener, self);
 
-    registry.setListener(*Wayland, registryListener, self);
     const errno = self.display.roundtrip();
-    if (errno != .SUCCESS) return error.RoundtripFailed;
+    if (errno != .SUCCESS) {
+        return error.RoundtripFailed;
+    }
 }
 
 pub fn findBar(self: *Wayland, wlSurface: ?*wl.Surface) ?*Bar {

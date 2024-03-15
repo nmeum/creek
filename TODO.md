@@ -1,6 +1,3 @@
-* Support wlr-output-management-unstable
-	* Draw bar on newly added monitors
-	* Disable bar on removed monitors
 * Improve font rendering
 	* fcft's font rendering is a bit meh
 	* Especially compared to bemenu which uses pango/cairo
