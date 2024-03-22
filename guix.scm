@@ -9,6 +9,17 @@
              (gnu packages fontutils)
              (gnu packages textutils))
 
+;; Custom version of the pixman package which does not enable gnuplot
+;; output. Otherwise, creek constantly writes gnuplot input to stderr.
+(define pixman-no-gnuplot
+  (package
+    (inherit pixman)
+    (arguments
+      `(#:configure-flags
+        (list
+          "--disable-static"
+          "--enable-timers")))))
+
 (package
   (name "creek")
   (version "0.3.0")
@@ -21,7 +32,7 @@
       #:tests? #f))
   (native-inputs
     (list
-      pixman
+      pixman-no-gnuplot
       fcft
       pkg-config
       wayland
