@@ -107,12 +107,12 @@ fn focusedOutput(self: *Seat, output: *wl.Output) void {
 
     if (monitor) |m| {
         if (m.confBar()) |bar| {
-                self.current_output = m.output;
-                render.renderText(bar, self.status_text) catch |err| {
-                    log.err("renderText failed on focus for monitor {}: {s}",
-                        .{m.globalName, @errorName(err)});
-                    return;
-                };
+            self.current_output = m.output;
+            render.renderText(bar, self.status_text) catch |err| {
+                log.err("renderText failed on focus for monitor {}: {s}",
+                    .{m.globalName, @errorName(err)});
+                return;
+            };
 
             bar.text.surface.commit();
             bar.background.surface.commit();
