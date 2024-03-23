@@ -11,6 +11,8 @@
 
 ;; Custom version of the pixman package which does not enable gnuplot
 ;; output. Otherwise, creek constantly writes gnuplot input to stderr.
+;;
+;; See https://issues.guix.gnu.org/69962
 (define pixman-no-gnuplot
   (package
     (inherit pixman)
