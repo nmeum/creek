@@ -3,7 +3,6 @@ const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
 const os = std.os;
-const strcmp = std.cstr.cmp;
 
 const wl = @import("wayland").client.wl;
 const wp = @import("wayland").client.wp;
@@ -38,7 +37,7 @@ inputs: std.ArrayList(*Input),
 
 pub fn init() !Wayland {
     const display = try wl.Display.connect(null);
-    const wfd = @intCast(os.fd_t, display.getFd());
+    const wfd: os.fd_t = @intCast(display.getFd());
     const registry = try display.getRegistry();
 
     return Wayland{
@@ -106,13 +105,13 @@ fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Way
             self.bindGlobal(registry, g.name, g.interface) catch unreachable;
         },
         .global_remove => |g| {
-            for (self.monitors.items) |monitor, i| {
+            for (self.monitors.items, 0..) |monitor, i| {
                 if (monitor.globalName == g.name) {
                     self.monitors.swapRemove(i).destroy();
                     break;
                 }
             }
-            for (self.inputs.items) |input, i| {
+            for (self.inputs.items, 0..) |input, i| {
                 if (input.globalName == g.name) {
                     self.inputs.swapRemove(i).destroy();
                     break;
@@ -123,27 +122,27 @@ fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Way
 }
 
 fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]const u8) !void {
-    if (strcmp(iface, wl.Compositor.getInterface().name) == 0) {
+    if (mem.orderZ(u8, iface, wl.Compositor.getInterface().name) == .eq) {
         self.compositor = try registry.bind(name, wl.Compositor, 4);
-    } else if (strcmp(iface, wl.Subcompositor.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, wl.Subcompositor.getInterface().name) == .eq) {
         self.subcompositor = try registry.bind(name, wl.Subcompositor, 1);
-    } else if (strcmp(iface, wl.Shm.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, wl.Shm.getInterface().name) == .eq) {
         self.shm = try registry.bind(name, wl.Shm, 1);
-    } else if (strcmp(iface, wp.Viewporter.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, wp.Viewporter.getInterface().name) == .eq) {
         self.viewporter = try registry.bind(name, wp.Viewporter, 1);
-    } else if (strcmp(iface, wp.SinglePixelBufferManagerV1.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, wp.SinglePixelBufferManagerV1.getInterface().name) == .eq) {
         self.single_pixel_buffer_manager = try registry.bind(name, wp.SinglePixelBufferManagerV1, 1);
-    } else if (strcmp(iface, zwlr.LayerShellV1.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, zwlr.LayerShellV1.getInterface().name) == .eq) {
         self.layer_shell = try registry.bind(name, zwlr.LayerShellV1, 1);
-    } else if (strcmp(iface, zriver.StatusManagerV1.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, zriver.StatusManagerV1.getInterface().name) == .eq) {
         self.status_manager = try registry.bind(name, zriver.StatusManagerV1, 2);
         self.river_seat = try Seat.create(); // TODO: find a better way to do this
-    } else if (strcmp(iface, zriver.ControlV1.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, zriver.ControlV1.getInterface().name) == .eq) {
         self.control = try registry.bind(name, zriver.ControlV1, 1);
-    } else if (strcmp(iface, wl.Output.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, wl.Output.getInterface().name) == .eq) {
         const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
-    } else if (strcmp(iface, wl.Seat.getInterface().name) == 0) {
+    } else if (mem.orderZ(u8, iface, wl.Seat.getInterface().name) == .eq) {
         self.seat = try registry.bind(name, wl.Seat, 1);
         try self.inputs.append(try Input.create(name));
     }

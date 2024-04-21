@@ -18,14 +18,13 @@ pub fn toUtf8(gpa: mem.Allocator, bytes: []const u8) ![]u32 {
     const utf8 = try unicode.Utf8View.init(bytes);
     var iter = utf8.iterator();
 
-    var runes = try gpa.alloc(u32, bytes.len);
+    var runes = try std.ArrayList(u32).initCapacity(gpa, bytes.len);
     var i: usize = 0;
     while (iter.nextCodepoint()) |rune| : (i += 1) {
-        runes[i] = rune;
+        runes.appendAssumeCapacity(rune);
     }
 
-    runes = gpa.resize(runes, i).?;
-    return runes;
+    return runes.toOwnedSlice();
 }
 
 pub fn renderTags(bar: *Bar) !void {
@@ -40,14 +39,14 @@ pub fn renderTags(bar: *Bar) !void {
     if (buffer.buffer == null) return;
     buffer.busy = true;
 
-    for (tags) |*tag, i| {
-        const offset = @intCast(i16, bar.height * i);
+    for (&tags, 0..) |*tag, i| {
+        const offset: i16 = @intCast(bar.height * i);
         try renderTag(buffer.pix.?, tag, bar.height, offset);
     }
 
     // Separator tag to visually separate last focused tag from
     // focused window title (both use the same background color).
-    const offset = @intCast(i16, bar.height * tags.len);
+    const offset: i16 = @intCast(bar.height * tags.len);
     try renderTag(buffer.pix.?, &Tag{ .label = '|' }, bar.height, offset);
 
     bar.tags_width = width;
@@ -57,17 +56,17 @@ pub fn renderTags(bar: *Bar) !void {
 }
 
 fn renderRun(start: i32, buffer: *Buffer, image: *pixman.Image, bar: *Bar, glyphs: [*]*const fcft.Glyph, count: usize) !i32 {
-    const font_height = @intCast(u32, state.config.font.height);
-    const y_offset: i32 = @intCast(i32, (bar.height - font_height) / 2);
+    const font_height: u32 = @intCast(state.config.font.height);
+    const y_offset: i32 = @intCast((bar.height - font_height) / 2);
 
     var i: usize = 0;
     var x: i32 = start;
     while (i < count) : (i += 1) {
         const glyph = glyphs[i];
-        x += @intCast(i32, glyph.x);
-        const y = (state.config.font.ascent - @intCast(i32, glyph.y)) + y_offset;
+        x += @intCast(glyph.x);
+        const y = (state.config.font.ascent - @as(i32, @intCast(glyph.y))) + y_offset;
         pixman.Image.composite32(.over, image, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-        x += glyph.advance.x - @intCast(i32, glyph.x);
+        x += glyph.advance.x - @as(i32, @intCast(glyph.x));
     }
 
     return x;
@@ -93,8 +92,8 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
     } else blk: {
         break :blk bar.width - bar.text_width - bar.text_padding;
     };
-    const width = if (text_start > 0) blk: {
-        break :blk @intCast(u16, text_start - title_start - bar.text_padding);
+    const width: u16 = if (text_start > 0) blk: {
+        break :blk @intCast(text_start - title_start - bar.text_padding);
     } else blk: {
         break :blk bar.width - title_start;
     };
@@ -129,11 +128,11 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
         var i: usize = 0;
         while (i < run.count) : (i += 1) {
             const glyph = run.glyphs[i];
-            max_x += @intCast(i32, glyph.x);
+            max_x += @intCast(glyph.x);
             if (max_x >= width - (2 * bar.text_padding) - bar.abbrev_width) {
                 break;
             }
-            max_x += glyph.advance.x - @intCast(i32, glyph.x);
+            max_x += glyph.advance.x - @as(i32, @intCast(glyph.x));
             max_glyphs += 1;
         }
 
@@ -187,13 +186,13 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
     var i: usize = 0;
     var width: u16 = 0;
     while (i < run.count) : (i += 1) {
-        width += @intCast(u16, run.glyphs[i].advance.x);
+        width += @intCast(run.glyphs[i].advance.x);
     }
 
     // set subsurface offset
-    const font_height = @intCast(u32, state.config.font.height);
-    var x_offset = @intCast(i32, bar.width - width - bar.text_padding);
-    var y_offset = @intCast(i32, @divFloor(bar.height - font_height, 2));
+    const font_height: u32 = @intCast(state.config.font.height);
+    var x_offset: i32 = @intCast(bar.width - width - bar.text_padding);
+    var y_offset: i32 = @intCast(@divFloor(bar.height - font_height, 2));
     bar.text.subsurface.setPosition(x_offset, y_offset);
 
     const buffers = &bar.text.buffers;
@@ -212,10 +211,10 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
     var color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
     while (i < run.count) : (i += 1) {
         const glyph = run.glyphs[i];
-        x += @intCast(i32, glyph.x);
-        const y = state.config.font.ascent - @intCast(i32, glyph.y);
+        x += @intCast(glyph.x);
+        const y = state.config.font.ascent - @as(i32, @intCast(glyph.y));
         pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-        x += glyph.advance.x - @intCast(i32, glyph.x);
+        x += glyph.advance.x - @as(i32, @intCast(glyph.x));
     }
 
     surface.setBufferScale(bar.monitor.scale);
@@ -243,7 +242,7 @@ fn renderTag(
     height: u16,
     offset: i16,
 ) !void {
-    const size = @intCast(u16, height);
+    const size: u16 = @intCast(height);
 
     const outer = [_]pixman.Rectangle16{
         .{ .x = offset, .y = 0, .width = size, .height = size },
@@ -252,11 +251,11 @@ fn renderTag(
     _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
 
     if (tag.occupied) {
-        const font_height = @intCast(u16, state.config.font.height);
+        const font_height: u16 = @intCast(state.config.font.height);
 
         // Constants taken from dwm-6.3 drawbar function.
-        const boxs = @intCast(i16, font_height / 9);
-        const boxw = font_height / 6 + 2;
+        const boxs: i16 = @intCast(font_height / 9);
+        const boxw: u16 = font_height / 6 + 2;
 
         const box = pixman.Rectangle16{
             .x = offset + boxs,

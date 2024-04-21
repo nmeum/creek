@@ -37,9 +37,9 @@ fn parseColor(str: []const u8) !pixman.Color {
     // For example: 0xRRGGBB.
     const val = try fmt.parseInt(u24, str, 0);
 
-    const r = @truncate(u8, val >> 16);
-    const g = @truncate(u8, val >> 8);
-    const b = @truncate(u8, val);
+    const r: u8 = @truncate(val >> 16);
+    const g: u8 = @truncate(val >> 8);
+    const b: u8 = @truncate(val);
 
     return pixman.Color{
         .red = @as(u16, r) << 8 | 0xff,
@@ -79,12 +79,12 @@ fn parseFlags(args: [][*:0]u8) !Config {
     const height: u16 = if (result.flags.@"hg") |raw| blk: {
         break :blk try fmt.parseUnsigned(u16, raw, 10);
     } else blk: {
-        break :blk @floatToInt(u16, @intToFloat(f32, font.height) * 1.5);
+        break :blk @intFromFloat(@as(f32, @floatFromInt(font.height)) * 1.5);
     };
 
     return Config{
         .font = try fcft.Font.fromName(&font_names, null),
-        .height = @intCast(u16, height),
+        .height = @intCast(height),
         .normalFgColor = try parseColorFlag(result.flags.@"nf", "0xb8b8b8"),
         .normalBgColor = try parseColorFlag(result.flags.@"nb", "0x282828"),
         .focusFgColor = try parseColorFlag(result.flags.@"ff", "0x181818"),

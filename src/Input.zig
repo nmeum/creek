@@ -90,7 +90,7 @@ fn pointerListener(
                 const tagsSurface = bar.tags.surface;
                 if (input.pointer.surface != tagsSurface) return;
 
-                const x = @intCast(u32, input.pointer.x);
+                const x: u32 = @intCast(input.pointer.x);
                 if (x < bar.height * @as(u16, bar.monitor.tags.tags.len)) {
                     bar.monitor.tags.handleClick(x) catch |err| {
                         log.err("handleClick failed for monitor {}: {s}",

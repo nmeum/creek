@@ -48,8 +48,8 @@ pub fn create(monitor: *Monitor) !*Tags {
 
     self.monitor = monitor;
     self.output_status = try manager.getRiverOutputStatus(monitor.output);
-    for (self.tags) |*tag, i| {
-        tag.label = '1' + @intCast(u8, i);
+    for (&self.tags, 0..) |*tag, i| {
+        tag.label = '1' + @as(u8, @intCast(i));
     }
 
     self.output_status.setListener(*Tags, outputStatusListener, self);
@@ -68,24 +68,24 @@ fn outputStatusListener(
 ) void {
     switch (event) {
         .focused_tags => |data| {
-            for (tags.tags) |*tag, i| {
-                const mask = @as(u32, 1) << @intCast(u5, i);
+            for (&tags.tags, 0..) |*tag, i| {
+                const mask = @as(u32, 1) << @as(u5, @intCast(i));
                 tag.focused = data.tags & mask != 0;
             }
         },
         .urgent_tags => |data| {
-            for (tags.tags) |*tag, i| {
-                const mask = @as(u32, 1) << @intCast(u5, i);
+            for (&tags.tags, 0..) |*tag, i| {
+                const mask = @as(u32, 1) << @as(u5, @intCast(i));
                 tag.urgent = data.tags & mask != 0;
             }
         },
         .view_tags => |data| {
-            for (tags.tags) |*tag| {
+            for (&tags.tags) |*tag| {
                 tag.occupied = false;
             }
             for (data.tags.slice(u32)) |view| {
-                for (tags.tags) |*tag, i| {
-                    const mask = @as(u32, 1) << @intCast(u5, i);
+                for (&tags.tags, 0..) |*tag, i| {
+                    const mask = @as(u32, 1) << @as(u5, @intCast(i));
                     if (view & mask != 0) tag.occupied = true;
                 }
             }
@@ -97,8 +97,7 @@ fn outputStatusListener(
         }
 
         render.renderTags(bar) catch |err| {
-            log.err("renderTags failed for monitor {}: {s}",
-                    .{tags.monitor.globalName, @errorName(err)});
+            log.err("renderTags failed for monitor {}: {s}", .{ tags.monitor.globalName, @errorName(err) });
             return;
         };
 
@@ -115,7 +114,7 @@ pub fn handleClick(self: *Tags, x: u32) !void {
         const payload = try std.fmt.allocPrintZ(
             state.gpa,
             "{d}",
-            .{@as(u32, 1) << @intCast(u5, index)},
+            .{@as(u32, 1) << @as(u5, @intCast(index))},
         );
         defer state.gpa.free(payload);
 

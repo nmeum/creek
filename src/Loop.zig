@@ -20,7 +20,7 @@ pub fn init() !Loop {
     _ = os.linux.sigprocmask(os.linux.SIG.BLOCK, &mask, null);
     const sfd = os.linux.signalfd(-1, &mask, os.linux.SFD.NONBLOCK);
 
-    return Loop{ .sfd = @intCast(os.fd_t, sfd) };
+    return Loop{ .sfd = @intCast(sfd) };
 }
 
 pub fn run(self: *Loop) !void {

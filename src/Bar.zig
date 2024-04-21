@@ -77,7 +77,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.abbrev_width = 0;
     var i: usize = 0;
     while (i < self.abbrev_run.count) : (i += 1) {
-        self.abbrev_width = @intCast(u16, self.abbrev_run.glyphs[i].advance.x);
+        self.abbrev_width = @intCast(self.abbrev_run.glyphs[i].advance.x);
     }
 
     // setup layer surface
@@ -122,8 +122,8 @@ fn layerSurfaceListener(
     switch (event) {
         .configure => |data| {
             bar.configured = true;
-            bar.width = @intCast(u16, data.width);
-            bar.height = @intCast(u16, data.height);
+            bar.width = @intCast(data.width);
+            bar.height = @intCast(data.height);
 
             layerSurface.ackConfigure(data.serial);
 
