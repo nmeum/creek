@@ -82,8 +82,10 @@ pub fn run(self: *Loop) !void {
         if (fds[2].revents & os.POLL.IN != 0) {
             if (state.wayland.river_seat) |seat| {
                 if (seat.focusedBar()) |bar| {
-                    seat.status_text = try reader.readUntilDelimiter(&seat.status_buffer, '\n');
-                    render.renderText(bar, seat.status_text) catch |err| {
+                    seat.status_text.reset();
+                    try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null);
+
+                    render.renderText(bar, seat.status_text.getWritten()) catch |err| {
                         log.err("renderText failed for monitor {}: {s}",
                             .{bar.monitor.globalName, @errorName(err)});
                         continue;
