@@ -91,11 +91,7 @@ fn outputStatusListener(
             }
         },
     }
-    if (tags.monitor.bar) |bar| {
-        if (!bar.configured) {
-            return;
-        }
-
+    if (tags.monitor.confBar()) |bar| {
         render.renderTags(bar) catch |err| {
             log.err("renderTags failed for monitor {}: {s}", .{ tags.monitor.globalName, @errorName(err) });
             return;
