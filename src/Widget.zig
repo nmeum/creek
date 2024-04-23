@@ -27,8 +27,8 @@ pub fn init(background: *wl.Surface) !Widget {
 }
 
 pub fn deinit(self: *Widget) void {
-    self.surface.destroy();
     self.subsurface.destroy();
+    self.surface.destroy();
     self.buffers[0].deinit();
     self.buffers[1].deinit();
 }

@@ -103,11 +103,12 @@ pub fn create(monitor: *Monitor) !*Bar {
 pub fn destroy(self: *Bar) void {
     self.abbrev_run.destroy();
     self.monitor.bar = null;
+
     self.layer_surface.destroy();
 
-    self.background.surface.destroy();
-    self.background.viewport.destroy();
     self.background.buffer.destroy();
+    self.background.viewport.destroy();
+    self.background.surface.destroy();
 
     self.title.deinit();
     self.tags.deinit();
