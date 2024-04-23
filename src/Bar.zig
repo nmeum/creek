@@ -111,6 +111,7 @@ pub fn destroy(self: *Bar) void {
 
     self.title.deinit();
     self.tags.deinit();
+    self.text.deinit();
     state.gpa.destroy(self);
 }
 
