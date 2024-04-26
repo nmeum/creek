@@ -58,8 +58,6 @@ In order to display the current time in the top-right corner, invoke creek as fo
 
 Note that for more complex setups, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
 
-### Dependencies
-
 [dwm]: https://dwm.suckless.org/
 [River]: https://github.com/riverwm/river/
 [malleable]: https://malleable.systems/
