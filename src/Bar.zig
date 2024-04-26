@@ -77,7 +77,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.abbrev_width = 0;
     var i: usize = 0;
     while (i < self.abbrev_run.count) : (i += 1) {
-        self.abbrev_width = @intCast(u16, self.abbrev_run.glyphs[i].advance.x);
+        self.abbrev_width = @intCast(self.abbrev_run.glyphs[i].advance.x);
     }
 
     // setup layer surface
@@ -103,14 +103,16 @@ pub fn create(monitor: *Monitor) !*Bar {
 pub fn destroy(self: *Bar) void {
     self.abbrev_run.destroy();
     self.monitor.bar = null;
+
     self.layer_surface.destroy();
 
-    self.background.surface.destroy();
-    self.background.viewport.destroy();
     self.background.buffer.destroy();
+    self.background.viewport.destroy();
+    self.background.surface.destroy();
 
     self.title.deinit();
     self.tags.deinit();
+    self.text.deinit();
     state.gpa.destroy(self);
 }
 
@@ -122,8 +124,8 @@ fn layerSurfaceListener(
     switch (event) {
         .configure => |data| {
             bar.configured = true;
-            bar.width = @intCast(u16, data.width);
-            bar.height = @intCast(u16, data.height);
+            bar.width = @intCast(data.width);
+            bar.height = @intCast(data.height);
 
             layerSurface.ackConfigure(data.serial);
 

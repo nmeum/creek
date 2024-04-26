@@ -16,7 +16,7 @@ seat_status: *zriver.SeatStatusV1,
 current_output: ?*wl.Output,
 window_title: ?[:0]u8,
 status_buffer: [4096]u8 = undefined,
-status_text: []u8,
+status_text: std.io.FixedBufferStream([]u8),
 mtx: Mutex,
 
 pub fn create() !*Seat {
@@ -30,9 +30,7 @@ pub fn create() !*Seat {
     self.seat_status = try manager.getRiverSeatStatus(seat);
     self.seat_status.setListener(*Seat, seatListener, self);
 
-    self.status_text = self.status_buffer[0..0];
-    std.debug.assert(self.status_text.len == 0);
-
+    self.status_text = std.io.fixedBufferStream(&self.status_buffer);
     return self;
 }
 
@@ -76,7 +74,7 @@ pub fn focusedBar(self: *Seat) ?*Bar {
 }
 
 fn updateTitle(self: *Seat, data: [*:0]const u8) void {
-    var title = std.mem.sliceTo(data, 0);
+    const title = std.mem.sliceTo(data, 0);
 
     self.mtx.lock();
     defer self.mtx.unlock();
@@ -91,7 +89,7 @@ fn updateTitle(self: *Seat, data: [*:0]const u8) void {
             log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
             return;
         };
-        std.mem.copy(u8, vz, title);
+        @memcpy(vz[0..vz.len], title);
         self.window_title = vz;
     }
 }
@@ -108,7 +106,7 @@ fn focusedOutput(self: *Seat, output: *wl.Output) void {
     if (monitor) |m| {
         if (m.confBar()) |bar| {
             self.current_output = m.output;
-            render.renderText(bar, self.status_text) catch |err| {
+            render.renderText(bar, self.status_text.getWritten()) catch |err| {
                 log.err("renderText failed on focus for monitor {}: {s}",
                     .{m.globalName, @errorName(err)});
                 return;

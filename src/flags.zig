@@ -20,7 +20,7 @@ const std = @import("std");
 const mem = std.mem;
 
 pub const Flag = struct {
-    name: []const u8,
+    name: [:0]const u8,
     kind: enum { boolean, arg },
 };
 
@@ -39,18 +39,18 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
 
             pub const Flags = flags_type: {
                 var fields: []const std.builtin.Type.StructField = &.{};
-                inline for (flags) |flag| {
+                for (flags) |flag| {
                     const field: std.builtin.Type.StructField = switch (flag.kind) {
                         .boolean => .{
                             .name = flag.name,
-                            .field_type = bool,
+                            .type = bool,
                             .default_value = &false,
                             .is_comptime = false,
                             .alignment = @alignOf(bool),
                         },
                         .arg => .{
                             .name = flag.name,
-                            .field_type = ?[:0]const u8,
+                            .type = ?[:0]const u8,
                             .default_value = &@as(?[:0]const u8, null),
                             .is_comptime = false,
                             .alignment = @alignOf(?[:0]const u8),
@@ -59,7 +59,7 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
                     fields = fields ++ [_]std.builtin.Type.StructField{field};
                 }
                 break :flags_type @Type(.{ .Struct = .{
-                    .layout = .Auto,
+                    .layout = .auto,
                     .fields = fields,
                     .decls = &.{},
                     .is_tuple = false,
@@ -72,14 +72,18 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
 
             var i: usize = 0;
             outer: while (i < args.len) : (i += 1) {
-                const arg = args[i];
+                const arg = switch (Arg) {
+                    [*:0]const u8 => mem.sliceTo(args[i], 0),
+                    [:0]const u8 => args[i],
+                    else => unreachable,
+                };
                 if (arg[0] != '-') {
                     continue;
                 }
 
                 var flag_found = false;
                 inline for (flags) |flag| {
-                    if (mem.eql(u8, flag.name, mem.span(arg + 1))) {
+                    if (mem.eql(u8, "-" ++ flag.name, arg)) {
                         flag_found = true;
                         switch (flag.kind) {
                             .boolean => @field(result_flags, flag.name) = true,
@@ -90,7 +94,11 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
                                         "' requires an argument but none was provided!", .{});
                                     return error.MissingFlagArgument;
                                 }
-                                @field(result_flags, flag.name) = mem.span(args[i]);
+                                @field(result_flags, flag.name) = switch (Arg) {
+                                    [*:0]const u8 => mem.sliceTo(args[i], 0),
+                                    [:0]const u8 => args[i],
+                                    else => unreachable,
+                                };
                             },
                         }
                         continue :outer;

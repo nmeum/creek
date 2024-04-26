@@ -1,23 +1,20 @@
 const std = @import("std");
-const Pkg = std.build.Pkg;
 
-const ScanProtocolsStep = @import("deps/zig-wayland/build.zig").ScanProtocolsStep;
+const Scanner = @import("deps/zig-wayland/build.zig").Scanner;
 
-pub fn build(b: *std.build.Builder) void {
+pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
-    const mode = b.standardReleaseOptions();
+    const optimize = b.standardOptimizeOption(.{});
 
-    const exe = b.addExecutable("creek", "src/main.zig");
-    exe.setTarget(target);
-    exe.setBuildMode(mode);
+    const scanner = Scanner.create(b, .{});
+    const wayland = b.createModule(.{ .root_source_file = scanner.result });
 
-    const scanner = ScanProtocolsStep.create(b);
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addSystemProtocol("stable/viewporter/viewporter.xml");
     scanner.addSystemProtocol("staging/single-pixel-buffer/single-pixel-buffer-v1.xml");
-    scanner.addProtocolPath("protocol/wlr-layer-shell-unstable-v1.xml");
-    scanner.addProtocolPath("protocol/river-status-unstable-v1.xml");
-    scanner.addProtocolPath("protocol/river-control-unstable-v1.xml");
+    scanner.addCustomProtocol("protocol/wlr-layer-shell-unstable-v1.xml");
+    scanner.addCustomProtocol("protocol/river-status-unstable-v1.xml");
+    scanner.addCustomProtocol("protocol/river-control-unstable-v1.xml");
 
     scanner.generate("wl_compositor", 4);
     scanner.generate("wl_subcompositor", 1);
@@ -30,40 +27,40 @@ pub fn build(b: *std.build.Builder) void {
     scanner.generate("zriver_status_manager_v1", 2);
     scanner.generate("zriver_control_v1", 1);
 
-    exe.step.dependOn(&scanner.step);
-    scanner.addCSource(exe);
+    const pixman = b.createModule(.{
+        .root_source_file = .{ .path = "deps/zig-pixman/pixman.zig" },
+    });
+    const fcft = b.createModule(.{
+        .root_source_file = .{ .path = "deps/zig-fcft/fcft.zig" },
+    });
+    fcft.addImport("pixman", pixman);
 
-    const wayland = Pkg{
-        .name = "wayland",
-        .source = .{ .generated = &scanner.result },
-    };
-    const pixman = Pkg{
-        .name = "pixman",
-        .source = .{ .path = "deps/zig-pixman/pixman.zig" },
-    };
-    const fcft = Pkg{
-        .name = "fcft",
-        .source = .{ .path = "deps/zig-fcft/fcft.zig" },
-        .dependencies = &[_]Pkg{pixman},
-    };
+    const exe = b.addExecutable(.{
+        .name = "creek",
+        .root_source_file = .{ .path = "src/main.zig" },
+        .target = target,
+        .optimize = optimize,
+    });
 
-    exe.addPackage(fcft);
-    exe.addPackage(pixman);
-    exe.addPackage(wayland);
+    exe.root_module.addImport("fcft", fcft);
+    exe.root_module.addImport("pixman", pixman);
+    exe.root_module.addImport("wayland", wayland);
 
     exe.linkLibC();
     exe.linkSystemLibrary("fcft");
     exe.linkSystemLibrary("pixman-1");
     exe.linkSystemLibrary("wayland-client");
 
-    exe.install();
+    scanner.addCSource(exe);
 
-    const run_cmd = exe.run();
-    run_cmd.step.dependOn(b.getInstallStep());
+    b.installArtifact(exe);
+
+    const run = b.addRunArtifact(exe);
+    run.step.dependOn(b.getInstallStep());
     if (b.args) |args| {
-        run_cmd.addArgs(args);
+        run.addArgs(args);
     }
 
     const run_step = b.step("run", "Run creek");
-    run_step.dependOn(&run_cmd.step);
+    run_step.dependOn(&run.step);
 }
