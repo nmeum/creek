@@ -1,7 +1,8 @@
 const std = @import("std");
 const log = std.log;
 const mem = std.mem;
-const os = std.os;
+const posix = std.posix;
+const linux = std.os.linux;
 const io = std.io;
 
 const render = @import("render.zig");
@@ -9,16 +10,16 @@ const Loop = @This();
 
 const state = &@import("root").state;
 
-sfd: os.fd_t,
+sfd: posix.fd_t,
 
 pub fn init() !Loop {
-    var mask = os.empty_sigset;
-    os.linux.sigaddset(&mask, os.linux.SIG.INT);
-    os.linux.sigaddset(&mask, os.linux.SIG.TERM);
-    os.linux.sigaddset(&mask, os.linux.SIG.QUIT);
+    var mask = posix.empty_sigset;
+    linux.sigaddset(&mask, linux.SIG.INT);
+    linux.sigaddset(&mask, linux.SIG.TERM);
+    linux.sigaddset(&mask, linux.SIG.QUIT);
 
-    _ = os.linux.sigprocmask(os.linux.SIG.BLOCK, &mask, null);
-    const sfd = os.linux.signalfd(-1, &mask, os.linux.SFD.NONBLOCK);
+    _ = linux.sigprocmask(linux.SIG.BLOCK, &mask, null);
+    const sfd = linux.signalfd(-1, &mask, linux.SFD.NONBLOCK);
 
     return Loop{ .sfd = @intCast(sfd) };
 }
@@ -26,20 +27,20 @@ pub fn init() !Loop {
 pub fn run(self: *Loop) !void {
     const wayland = &state.wayland;
 
-    var fds = [_]os.pollfd{
+    var fds = [_]posix.pollfd{
         .{
             .fd = self.sfd,
-            .events = os.POLL.IN,
+            .events = posix.POLL.IN,
             .revents = undefined,
         },
         .{
             .fd = wayland.fd,
-            .events = os.POLL.IN,
+            .events = posix.POLL.IN,
             .revents = undefined,
         },
         .{
-            .fd = os.STDIN_FILENO,
-            .events = os.POLL.IN,
+            .fd = posix.STDIN_FILENO,
+            .events = posix.POLL.IN,
             .revents = undefined,
         },
     };
@@ -52,34 +53,34 @@ pub fn run(self: *Loop) !void {
             if (ret == .SUCCESS) break;
         }
 
-        _ = os.poll(&fds, -1) catch |err| {
+        _ = posix.poll(&fds, -1) catch |err| {
             log.err("poll failed: {s}", .{@errorName(err)});
             return;
         };
 
         for (fds) |fd| {
-            if (fd.revents & os.POLL.HUP != 0 or fd.revents & os.POLL.ERR != 0) {
+            if (fd.revents & posix.POLL.HUP != 0 or fd.revents & posix.POLL.ERR != 0) {
                 return;
             }
         }
 
         // signals
-        if (fds[0].revents & os.POLL.IN != 0) {
+        if (fds[0].revents & posix.POLL.IN != 0) {
             return;
         }
 
         // wayland
-        if (fds[1].revents & os.POLL.IN != 0) {
+        if (fds[1].revents & posix.POLL.IN != 0) {
             const errno = wayland.display.dispatch();
             if (errno != .SUCCESS) return;
         }
-        if (fds[1].revents & os.POLL.OUT != 0) {
+        if (fds[1].revents & posix.POLL.OUT != 0) {
             const errno = wayland.display.flush();
             if (errno != .SUCCESS) return;
         }
 
         // status input
-        if (fds[2].revents & os.POLL.IN != 0) {
+        if (fds[2].revents & posix.POLL.IN != 0) {
             if (state.wayland.river_seat) |seat| {
                 if (seat.focusedBar()) |bar| {
                     seat.status_text.reset();

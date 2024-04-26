@@ -3,6 +3,7 @@ const heap = std.heap;
 const io = std.io;
 const log = std.log;
 const mem = std.mem;
+const posix = std.posix;
 const os = std.os;
 const fmt = std.fmt;
 const process = std.process;
@@ -76,7 +77,7 @@ fn parseFlags(args: [][*:0]u8) !Config {
     };
 
     const font = try fcft.Font.fromName(&font_names, null);
-    const height: u16 = if (result.flags.@"hg") |raw| blk: {
+    const height: u16 = if (result.flags.hg) |raw| blk: {
         break :blk try fmt.parseUnsigned(u16, raw, 10);
     } else blk: {
         break :blk @intFromFloat(@as(f32, @floatFromInt(font.height)) * 1.5);
@@ -85,10 +86,10 @@ fn parseFlags(args: [][*:0]u8) !Config {
     return Config{
         .font = try fcft.Font.fromName(&font_names, null),
         .height = @intCast(height),
-        .normalFgColor = try parseColorFlag(result.flags.@"nf", "0xb8b8b8"),
-        .normalBgColor = try parseColorFlag(result.flags.@"nb", "0x282828"),
-        .focusFgColor = try parseColorFlag(result.flags.@"ff", "0x181818"),
-        .focusBgColor = try parseColorFlag(result.flags.@"fb", "0x7cafc2"),
+        .normalFgColor = try parseColorFlag(result.flags.nf, "0xb8b8b8"),
+        .normalBgColor = try parseColorFlag(result.flags.nb, "0x282828"),
+        .focusFgColor = try parseColorFlag(result.flags.ff, "0x181818"),
+        .focusBgColor = try parseColorFlag(result.flags.fb, "0x7cafc2"),
     };
 }
 
@@ -103,7 +104,7 @@ pub fn usage() noreturn {
         std.debug.panic("{s}", .{@errorName(err)});
     };
 
-    os.exit(1);
+    posix.exit(1);
 }
 
 pub fn main() anyerror!void {

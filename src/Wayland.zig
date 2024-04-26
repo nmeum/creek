@@ -2,7 +2,7 @@ const std = @import("std");
 const log = std.log;
 const mem = std.mem;
 const meta = std.meta;
-const os = std.os;
+const posix = std.posix;
 
 const wl = @import("wayland").client.wl;
 const wp = @import("wayland").client.wp;
@@ -19,7 +19,7 @@ const state = &@import("root").state;
 
 display: *wl.Display,
 registry: *wl.Registry,
-fd: os.fd_t,
+fd: posix.fd_t,
 
 compositor: ?*wl.Compositor = null,
 subcompositor: ?*wl.Subcompositor = null,
@@ -37,7 +37,7 @@ inputs: std.ArrayList(*Input),
 
 pub fn init() !Wayland {
     const display = try wl.Display.connect(null);
-    const wfd: os.fd_t = @intCast(display.getFd());
+    const wfd: posix.fd_t = @intCast(display.getFd());
     const registry = try display.getRegistry();
 
     return Wayland{

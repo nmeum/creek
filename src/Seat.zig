@@ -74,7 +74,7 @@ pub fn focusedBar(self: *Seat) ?*Bar {
 }
 
 fn updateTitle(self: *Seat, data: [*:0]const u8) void {
-    var title = std.mem.sliceTo(data, 0);
+    const title = std.mem.sliceTo(data, 0);
 
     self.mtx.lock();
     defer self.mtx.unlock();
@@ -89,7 +89,7 @@ fn updateTitle(self: *Seat, data: [*:0]const u8) void {
             log.err("allocSentinel failed for window title: {s}\n", .{@errorName(err)});
             return;
         };
-        std.mem.copy(u8, vz, title);
+        @memcpy(vz[0..vz.len], title);
         self.window_title = vz;
     }
 }

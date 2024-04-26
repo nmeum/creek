@@ -1,14 +1,13 @@
 const std = @import("std");
-const Builder = std.build.Builder;
 
 const Scanner = @import("deps/zig-wayland/build.zig").Scanner;
 
-pub fn build(b: *Builder) void {
+pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const scanner = Scanner.create(b, .{});
-    const wayland = b.createModule(.{ .source_file = scanner.result });
+    const wayland = b.createModule(.{ .root_source_file = scanner.result });
 
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addSystemProtocol("stable/viewporter/viewporter.xml");
@@ -29,14 +28,12 @@ pub fn build(b: *Builder) void {
     scanner.generate("zriver_control_v1", 1);
 
     const pixman = b.createModule(.{
-        .source_file = .{ .path = "deps/zig-pixman/pixman.zig" },
+        .root_source_file = .{ .path = "deps/zig-pixman/pixman.zig" },
     });
     const fcft = b.createModule(.{
-        .source_file = .{ .path = "deps/zig-fcft/fcft.zig" },
-        .dependencies = &.{
-            .{ .name = "pixman", .module = pixman },
-        },
+        .root_source_file = .{ .path = "deps/zig-fcft/fcft.zig" },
     });
+    fcft.addImport("pixman", pixman);
 
     const exe = b.addExecutable(.{
         .name = "creek",
@@ -45,9 +42,9 @@ pub fn build(b: *Builder) void {
         .optimize = optimize,
     });
 
-    exe.addModule("fcft", fcft);
-    exe.addModule("pixman", pixman);
-    exe.addModule("wayland", wayland);
+    exe.root_module.addImport("fcft", fcft);
+    exe.root_module.addImport("pixman", pixman);
+    exe.root_module.addImport("wayland", wayland);
 
     exe.linkLibC();
     exe.linkSystemLibrary("fcft");

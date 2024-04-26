@@ -1,6 +1,7 @@
 const std = @import("std");
 const mem = std.mem;
-const os = std.os;
+const posix = std.posix;
+const linux = std.os.linux;
 
 const pixman = @import("pixman");
 const wl = @import("wayland").client.wl;
@@ -24,14 +25,14 @@ pub fn resize(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
     self.width = width;
     self.height = height;
 
-    const fd = try os.memfd_create("creek-shm", os.linux.MFD.CLOEXEC);
-    defer os.close(fd);
+    const fd = try posix.memfd_create("creek-shm", linux.MFD.CLOEXEC);
+    defer posix.close(fd);
 
     const stride = width * 4;
     self.size = stride * height;
-    try os.ftruncate(fd, self.size);
+    try posix.ftruncate(fd, self.size);
 
-    self.mmap = try os.mmap(null, self.size, os.PROT.READ | os.PROT.WRITE, os.MAP.SHARED, fd, 0);
+    self.mmap = try posix.mmap(null, self.size, posix.PROT.READ | posix.PROT.WRITE, .{ .TYPE = .SHARED }, fd, 0);
     self.data = mem.bytesAsSlice(u32, self.mmap.?);
 
     const pool = try shm.createPool(fd, self.size);
@@ -47,7 +48,7 @@ pub fn resize(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
 pub fn deinit(self: *Buffer) void {
     if (self.pix) |pix| _ = pix.unref();
     if (self.buffer) |buf| buf.destroy();
-    if (self.mmap) |mmap| os.munmap(mmap);
+    if (self.mmap) |mmap| posix.munmap(mmap);
 }
 
 fn listener(_: *wl.Buffer, event: wl.Buffer.Event, buffer: *Buffer) void {

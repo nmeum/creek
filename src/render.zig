@@ -137,7 +137,7 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
         }
 
         var x: i32 = bar.text_padding;
-        var color = pixman.Image.createSolidFill(&state.config.focusFgColor).?;
+        const color = pixman.Image.createSolidFill(&state.config.focusFgColor).?;
         x += try renderRun(bar.text_padding, buffer, color, bar, run.glyphs, max_glyphs);
         if (run.count > max_glyphs) { // if abbreviated
             _ = try renderRun(x, buffer, color, bar, bar.abbrev_run.glyphs, bar.abbrev_run.count);
@@ -191,8 +191,8 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
 
     // set subsurface offset
     const font_height: u32 = @intCast(state.config.font.height);
-    var x_offset: i32 = @intCast(bar.width - width - bar.text_padding);
-    var y_offset: i32 = @intCast(@divFloor(bar.height - font_height, 2));
+    const x_offset: i32 = @intCast(bar.width - width - bar.text_padding);
+    const y_offset: i32 = @intCast(@divFloor(bar.height - font_height, 2));
     bar.text.subsurface.setPosition(x_offset, y_offset);
 
     const buffers = &bar.text.buffers;
@@ -208,7 +208,7 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
 
     var x: i32 = 0;
     i = 0;
-    var color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
+    const color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
     while (i < run.count) : (i += 1) {
         const glyph = run.glyphs[i];
         x += @intCast(glyph.x);
@@ -287,7 +287,7 @@ fn renderTag(
 
     const glyph_color = tag.fgColor();
     const font = state.config.font;
-    var char = pixman.Image.createSolidFill(glyph_color).?;
+    const char = pixman.Image.createSolidFill(glyph_color).?;
     const glyph = try font.rasterizeCharUtf32(tag.label, .default);
     const x = offset + @divFloor(size - glyph.width, 2);
     const y = @divFloor(size - glyph.height, 2);
