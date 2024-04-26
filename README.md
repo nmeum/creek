@@ -22,19 +22,18 @@ On the right-hand side, the current time is shown, this is information is genera
 
 ### Build
 
-Since Zig is presently rather unstable, this software relies heavily on [Guix].
-Similar to [Nix], Guix is a functional package manager which enables long-term reproducible builds.
-Unfortunately, Guix still packages Zig version 0.10.1, hence it might be challenging to build creek without Guix.
+The following dependencies need to be installed:
 
-In order to install creek using [Guix] run:
+* [zig] 0.10.0
+* [wayland] 1.21.0
+* [pixman] 0.42.0
+* [fcft] 3.1.5 (with [utf8proc] support)
+
+Afterwards, creek can be build as follows
 
     $ git clone --recursive https://git.8pit.net/creek.git
     $ cd creek
-    $ guix time-machine -C channels.scm -- package -f guix.scm
-
-If you want to hack on creek using Guix:
-
-    $ guix time-machine -C channels.scm -- shell -D -f guix.scm
+    $ zig build
 
 ### Configuration
 
@@ -61,11 +60,6 @@ Note that for more complex setups, a shell script may [not be the best option](h
 
 ### Dependencies
 
-* [zig] 0.10.0
-* [wayland] 1.21.0
-* [pixman] 0.42.0
-* [fcft] 3.1.5 (with [utf8proc] support)
-
 [dwm]: https://dwm.suckless.org/
 [River]: https://github.com/riverwm/river/
 [malleable]: https://malleable.systems/
@@ -73,8 +67,6 @@ Note that for more complex setups, a shell script may [not be the best option](h
 [levee]: https://sr.ht/~andreafeletto/levee
 [levee modules]: https://git.sr.ht/~andreafeletto/levee/tree/v0.1.3/item/src/modules
 [xdg-activation]: https://wayland.app/protocols/xdg-activation-v1
-[Nix]: https://nixos.org/
-[Guix]: https://guix.gnu.org/
 [zig]: https://ziglang.org/
 [wayland]: https://wayland.freedesktop.org/
 [pixman]: http://pixman.org/
