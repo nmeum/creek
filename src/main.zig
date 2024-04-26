@@ -104,7 +104,7 @@ pub fn usage() noreturn {
         std.debug.panic("{s}", .{@errorName(err)});
     };
 
-    posix.exit(1);
+    process.exit(1);
 }
 
 pub fn main() anyerror!void {
