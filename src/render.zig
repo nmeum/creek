@@ -239,11 +239,9 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
 fn renderTag(
     pix: *pixman.Image,
     tag: *const Tag,
-    height: u16,
+    size: u16,
     offset: i16,
 ) !void {
-    const size: u16 = @intCast(height);
-
     const outer = [_]pixman.Rectangle16{
         .{ .x = offset, .y = 0, .width = size, .height = size },
     };
