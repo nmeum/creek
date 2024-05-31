@@ -31,7 +31,7 @@ The following dependencies need to be installed:
 
 Afterwards, creek can be build as follows
 
-    $ git clone --recursive https://git.8pit.net/creek.git
+    $ git clone https://git.8pit.net/creek.git
     $ cd creek
     $ zig build
 
