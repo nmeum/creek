@@ -5,6 +5,7 @@ const Scanner = @import("zig-wayland").Scanner;
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
+    const pie = b.option(bool, "pie", "Build a position-independent executable") orelse false;
 
     const scanner = Scanner.create(b, .{});
 
@@ -36,6 +37,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
+    exe.pie = pie;
 
     exe.linkLibC();
     exe.root_module.addImport("wayland", wayland);
