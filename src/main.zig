@@ -84,7 +84,7 @@ fn parseFlags(args: [][*:0]u8) !Config {
     };
 
     return Config{
-        .font = try fcft.Font.fromName(&font_names, null),
+        .font = font,
         .height = @intCast(height),
         .normalFgColor = try parseColorFlag(result.flags.nf, "0xb8b8b8"),
         .normalBgColor = try parseColorFlag(result.flags.nb, "0x282828"),
