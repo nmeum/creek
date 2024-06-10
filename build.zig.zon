@@ -4,16 +4,16 @@
     .paths = .{""},
     .dependencies = .{
         .@"zig-pixman" = .{
-            .url = "https://codeberg.org/ifreund/zig-pixman/archive/92b2212565ba46d24b757c5c46122339a9471fa4.tar.gz",
-            .hash = "12207ddc241c6bd78ab2fd134464d7487329c1329d1c32355c0a616446a47ded174e",
+            .url = "https://codeberg.org/ifreund/zig-pixman/archive/v0.2.0.tar.gz",
+            .hash = "12209db20ce873af176138b76632931def33a10539387cba745db72933c43d274d56",
         },
         .@"zig-wayland" = .{
-            .url = "https://codeberg.org/ifreund/zig-wayland/archive/v0.1.0.tar.gz",
-            .hash = "1220b0f8f822c1625af7aae4cb3ab2c4ec1a4c0e99ef32867b2a8d88bb070b3e7f6d",
+            .url = "https://codeberg.org/ifreund/zig-wayland/archive/v0.2.0.tar.gz",
+            .hash = "1220687c8c47a48ba285d26a05600f8700d37fc637e223ced3aa8324f3650bf52242",
         },
         .@"zig-fcft" = .{
-            .url = "https://git.sr.ht/~novakane/zig-fcft/archive/7881eac29bf0d9de4df1fc31df380e8f5f620585.tar.gz",
-            .hash = "1220cc15677890989c54713a7c9d90b6999ad21bdb78fe411b016335daa6cea9f9dd",
+            .url = "https://git.sr.ht/~novakane/zig-fcft/archive/1.1.0.tar.gz",
+            .hash = "1220a4029ee3ee70d3175c69878e2b70dccd000c4324bc74ba800d8a143b7250fb38",
         },
     },
 }
