@@ -1,5 +1,7 @@
 ## README
 
+Project abandoned.
+
 Creek is a [dwm]-inspired [malleable] and minimalist status bar for the [River] Wayland compositor.
 The implementation is a hard fork of version 0.1.3 of the [levee] status bar.
 Compared to levee, the main objective is to ease [recombination and reuse][malleable reuse] by providing a simpler interface for adding custom information to the status bar.
