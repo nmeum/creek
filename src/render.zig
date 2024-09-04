@@ -158,8 +158,10 @@ pub fn resetText(bar: *Bar) !void {
     if (buffer.buffer == null) return;
     buffer.busy = true;
 
+    const text_to_bottom: u16 =
+        @intCast(state.config.font.height + bar.text_padding);
     const bg_area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = bar.text_width, .height = bar.height },
+        .{ .x = 0, .y = 0, .width = bar.text_width, .height = text_to_bottom },
     };
     var bg_color = state.config.normalBgColor;
     _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
