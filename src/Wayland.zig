@@ -143,7 +143,7 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
     } else if (mem.orderZ(u8, iface, wl.Seat.getInterface().name) == .eq) {
-        self.seat = try registry.bind(name, wl.Seat, 1);
+        self.seat = try registry.bind(name, wl.Seat, 5);
         try self.inputs.append(try Input.create(name));
     }
 }
