@@ -89,7 +89,7 @@ pub fn run(self: *Loop) !void {
                     render.renderText(bar, seat.status_text.getWritten()) catch |err| {
                         log.err("renderText failed for monitor {}: {s}",
                             .{bar.monitor.globalName, @errorName(err)});
-                        continue;
+                        std.process.exit(1);
                     };
 
                     bar.text.surface.commit();

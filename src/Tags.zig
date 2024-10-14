@@ -92,9 +92,10 @@ fn outputStatusListener(
         },
     }
     if (tags.monitor.confBar()) |bar| {
+        std.debug.print("Tags: renderTags()\n", .{});
         render.renderTags(bar) catch |err| {
             log.err("renderTags failed for monitor {}: {s}", .{ tags.monitor.globalName, @errorName(err) });
-            return;
+            std.process.exit(1);
         };
 
         bar.tags.surface.commit();

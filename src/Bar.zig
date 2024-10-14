@@ -134,9 +134,10 @@ fn layerSurfaceListener(
             bg.surface.damageBuffer(0, 0, bar.width, bar.height);
             bg.viewport.setDestination(bar.width, bar.height);
 
+            std.debug.print("Bar: renderTags()\n", .{});
             render.renderTags(bar) catch |err| {
                 log.err("renderTags failed for monitor {}: {s}", .{ bar.monitor.globalName, @errorName(err) });
-                return;
+                std.process.exit(1);
             };
 
             bar.tags.surface.commit();

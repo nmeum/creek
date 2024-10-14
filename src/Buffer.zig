@@ -19,6 +19,7 @@ height: u31 = 0,
 size: u31 = 0,
 
 pub fn resize(self: *Buffer, shm: *wl.Shm, width: u31, height: u31) !void {
+    std.debug.print("RESIZE\n", .{});
     if (width == 0 or height == 0) return;
 
     self.busy = true;
