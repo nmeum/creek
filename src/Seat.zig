@@ -154,6 +154,13 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
 }
 
 fn focusedView(self: *Seat, title: [*:0]const u8) void {
+    if (self.window_title) |cur| {
+        const new = std.mem.sliceTo(title, 0);
+        if (std.mem.eql(u8, new, cur)) {
+            return;
+        }
+    }
+
     self.updateTitle(title);
     if (self.focusedBar()) |bar| {
         render.renderTitle(bar, self.window_title) catch |err| {
