@@ -123,11 +123,17 @@ fn layerSurfaceListener(
 ) void {
     switch (event) {
         .configure => |data| {
-            bar.configured = true;
-            bar.width = @intCast(data.width);
-            bar.height = @intCast(data.height);
-
             layerSurface.ackConfigure(data.serial);
+
+            const w: u16 = @intCast(data.width);
+            const h: u16 = @intCast(data.height);
+            if (bar.configured and bar.width == w and bar.height == h) {
+                return;
+            }
+
+            bar.configured = true;
+            bar.width = w;
+            bar.height = h;
 
             const bg = &bar.background;
             bg.surface.attach(bg.buffer, 0, 0);
