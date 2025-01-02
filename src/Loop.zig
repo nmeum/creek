@@ -87,9 +87,9 @@ pub fn run(self: *Loop) !void {
                     try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null);
 
                     render.renderText(bar, seat.status_text.getWritten()) catch |err| {
-                        log.err("renderText failed for monitor {}: {s}",
+                        log.err("main loop: renderText failed for monitor {}: {s}",
                             .{bar.monitor.globalName, @errorName(err)});
-                        continue;
+                        std.process.exit(1);
                     };
 
                     bar.text.surface.commit();
