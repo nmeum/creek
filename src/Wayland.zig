@@ -107,6 +107,7 @@ fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Way
         .global_remove => |g| {
             for (self.monitors.items, 0..) |monitor, i| {
                 if (monitor.globalName == g.name) {
+                    log.info("Remove monitor {}\n", .{g.name});
                     self.monitors.swapRemove(i).destroy();
                     break;
                 }
@@ -140,6 +141,7 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
     } else if (mem.orderZ(u8, iface, zriver.ControlV1.getInterface().name) == .eq) {
         self.control = try registry.bind(name, zriver.ControlV1, 1);
     } else if (mem.orderZ(u8, iface, wl.Output.getInterface().name) == .eq) {
+        log.info("Creating new monitor: {}\n", .{name});
         const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
     } else if (mem.orderZ(u8, iface, wl.Seat.getInterface().name) == .eq) {
