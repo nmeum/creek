@@ -1,19 +1,20 @@
 .{
-    .name = "creek",
+    .name = .creek,
     .version = "0.4.0-dev",
+    .fingerprint = 0x5570bc6e57bf7f12,
     .paths = .{""},
     .dependencies = .{
-        .@"zig-pixman" = .{
-            .url = "https://codeberg.org/ifreund/zig-pixman/archive/v0.2.0.tar.gz",
-            .hash = "12209db20ce873af176138b76632931def33a10539387cba745db72933c43d274d56",
+        .pixman = .{
+            .url = "https://codeberg.org/ifreund/zig-pixman/archive/v0.3.0.tar.gz",
+            .hash = "12202ced04821b02e2995e55518c742459d7e71594e87c2d32e0d7290021aaa3f238",
         },
-        .@"zig-wayland" = .{
-            .url = "https://codeberg.org/ifreund/zig-wayland/archive/v0.2.0.tar.gz",
-            .hash = "1220687c8c47a48ba285d26a05600f8700d37fc637e223ced3aa8324f3650bf52242",
+        .wayland = .{
+            .url = "https://codeberg.org/ifreund/zig-wayland/archive/v0.3.0.tar.gz",
+            .hash = "1220e684662963ecf1891cd02451d0d95aa126440b6ca29db79c2514962cb6f8ef78",
         },
-        .@"zig-fcft" = .{
-            .url = "https://git.sr.ht/~novakane/zig-fcft/archive/1.1.0.tar.gz",
-            .hash = "1220a4029ee3ee70d3175c69878e2b70dccd000c4324bc74ba800d8a143b7250fb38",
+        .fcft = .{
+            .url = "https://git.sr.ht/~allainp/zig-fcft/archive/b9c5cf64bcda4c9aa5eb00cdbf8ae093716684d4.tar.gz",
+            .hash = "fcft-1.0.0-jFulY5waAAAitIXXPMSKFd4ik9Kepf3SrZulNdUKTKFB",
         },
     },
 }
