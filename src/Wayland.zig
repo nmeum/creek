@@ -122,27 +122,27 @@ fn registryListener(registry: *wl.Registry, event: wl.Registry.Event, self: *Way
 }
 
 fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]const u8) !void {
-    if (mem.orderZ(u8, iface, wl.Compositor.getInterface().name) == .eq) {
+    if (mem.orderZ(u8, iface, wl.Compositor.interface.name) == .eq) {
         self.compositor = try registry.bind(name, wl.Compositor, 4);
-    } else if (mem.orderZ(u8, iface, wl.Subcompositor.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, wl.Subcompositor.interface.name) == .eq) {
         self.subcompositor = try registry.bind(name, wl.Subcompositor, 1);
-    } else if (mem.orderZ(u8, iface, wl.Shm.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, wl.Shm.interface.name) == .eq) {
         self.shm = try registry.bind(name, wl.Shm, 1);
-    } else if (mem.orderZ(u8, iface, wp.Viewporter.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, wp.Viewporter.interface.name) == .eq) {
         self.viewporter = try registry.bind(name, wp.Viewporter, 1);
-    } else if (mem.orderZ(u8, iface, wp.SinglePixelBufferManagerV1.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, wp.SinglePixelBufferManagerV1.interface.name) == .eq) {
         self.single_pixel_buffer_manager = try registry.bind(name, wp.SinglePixelBufferManagerV1, 1);
-    } else if (mem.orderZ(u8, iface, zwlr.LayerShellV1.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, zwlr.LayerShellV1.interface.name) == .eq) {
         self.layer_shell = try registry.bind(name, zwlr.LayerShellV1, 1);
-    } else if (mem.orderZ(u8, iface, zriver.StatusManagerV1.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, zriver.StatusManagerV1.interface.name) == .eq) {
         self.status_manager = try registry.bind(name, zriver.StatusManagerV1, 2);
         self.river_seat = try Seat.create(); // TODO: find a better way to do this
-    } else if (mem.orderZ(u8, iface, zriver.ControlV1.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, zriver.ControlV1.interface.name) == .eq) {
         self.control = try registry.bind(name, zriver.ControlV1, 1);
-    } else if (mem.orderZ(u8, iface, wl.Output.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, wl.Output.interface.name) == .eq) {
         const monitor = try Monitor.create(registry, name);
         try self.monitors.append(monitor);
-    } else if (mem.orderZ(u8, iface, wl.Seat.getInterface().name) == .eq) {
+    } else if (mem.orderZ(u8, iface, wl.Seat.interface.name) == .eq) {
         self.seat = try registry.bind(name, wl.Seat, 5);
         try self.inputs.append(try Input.create(name));
     }

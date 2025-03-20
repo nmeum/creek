@@ -1,6 +1,6 @@
 const std = @import("std");
 
-const Scanner = @import("zig-wayland").Scanner;
+const Scanner = @import("wayland").Scanner;
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
@@ -12,9 +12,9 @@ pub fn build(b: *std.Build) void {
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
     scanner.addSystemProtocol("stable/viewporter/viewporter.xml");
     scanner.addSystemProtocol("staging/single-pixel-buffer/single-pixel-buffer-v1.xml");
-    scanner.addCustomProtocol("protocol/wlr-layer-shell-unstable-v1.xml");
-    scanner.addCustomProtocol("protocol/river-status-unstable-v1.xml");
-    scanner.addCustomProtocol("protocol/river-control-unstable-v1.xml");
+    scanner.addCustomProtocol(b.path("protocol/wlr-layer-shell-unstable-v1.xml"));
+    scanner.addCustomProtocol(b.path("protocol/river-status-unstable-v1.xml"));
+    scanner.addCustomProtocol(b.path("protocol/river-control-unstable-v1.xml"));
 
     scanner.generate("wl_compositor", 4);
     scanner.generate("wl_subcompositor", 1);
@@ -28,8 +28,8 @@ pub fn build(b: *std.Build) void {
     scanner.generate("zriver_control_v1", 1);
 
     const wayland = b.createModule(.{ .root_source_file = scanner.result });
-    const pixman = b.dependency("zig-pixman", .{}).module("pixman");
-    const fcft = b.dependency("zig-fcft", .{}).module("fcft");
+    const pixman = b.dependency("pixman", .{}).module("pixman");
+    const fcft = b.dependency("fcft", .{}).module("fcft");
 
     const exe = b.addExecutable(.{
         .name = "creek",
@@ -48,9 +48,6 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("fcft", fcft);
     exe.linkSystemLibrary("fcft");
-
-    // TODO: remove when https://github.com/ziglang/zig/issues/131 is implemented
-    scanner.addCSource(exe);
 
     b.installArtifact(exe);
 
