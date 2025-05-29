@@ -58,6 +58,17 @@ In order to display the current time in the top-right corner, invoke creek as fo
 
 Note that for more complex setups, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
 
+### River's configuration
+
+Use `riverctl spawn` to launch creek from River's configuration file as follow:
+
+    riverctl spawn creek
+
+When combined with the two previous examples, it becomes:
+
+    riverctl spawn "( while date; do sleep 1; done ) | creek -fn Terminus:size=12 -hg 18 -nf 0xffffff -nb 0x000000"
+
+
 [dwm]: https://dwm.suckless.org/
 [River]: https://github.com/riverwm/river/
 [malleable]: https://malleable.systems/
