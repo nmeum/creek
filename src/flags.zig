@@ -44,7 +44,7 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
                         .boolean => .{
                             .name = flag.name,
                             .type = bool,
-                            .default_value = &false,
+                            .default_value_ptr = &false,
                             .is_comptime = false,
                             .alignment = @alignOf(bool),
                         },
