@@ -82,18 +82,39 @@ pub fn run(self: *Loop) !void {
         // status input
         if (fds[2].revents & posix.POLL.IN != 0) {
             if (state.wayland.river_seat) |seat| {
-                if (seat.focusedBar()) |bar| {
-                    seat.status_text.reset();
-                    try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null);
+                seat.status_text.reset();
+                try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null,);
 
-                    render.renderText(bar, seat.status_text.getWritten()) catch |err| {
-                        log.err("renderText failed for monitor {}: {s}",
-                            .{bar.monitor.globalName, @errorName(err)});
+                if (!state.config.showStatusAllOutputs) {
+                    if (seat.focusedBar()) |bar| {
+                        render.renderText(bar, seat.status_text.getWritten()) catch |err| {
+                            log.err("renderText failed for monitor {}: {s}",
+                                .{bar.monitor.globalName, @errorName(err)});
+                            continue;
+                        };
+
+                        bar.text.surface.commit();
+                        bar.background.surface.commit();
+                    }
+                } else {
+                    // We get all bars instead of just the focused one here
+                    const bars = seat.allBars() catch |err| {
+                        log.err("renderText failed for all monitors: {s}", .{@errorName(err)});
                         continue;
-                    };
-
-                    bar.text.surface.commit();
-                    bar.background.surface.commit();
+                    } orelse continue;
+                    for (bars) |bar| {
+                        if (bar) |b| {
+                            render.renderText(b, seat.status_text.getWritten()) catch |err| {
+                                log.err("renderText failed for monitor {}: {s}",
+                                    .{b.monitor.globalName, @errorName(err)});
+                                continue;
+                            };
+                         
+                            b.text.surface.commit();
+                            b.background.surface.commit();
+                        }
+                    }
+                    state.gpa.free(bars);
                 }
             }
         }

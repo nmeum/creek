@@ -73,6 +73,17 @@ pub fn focusedBar(self: *Seat) ?*Bar {
     return null;
 }
 
+pub fn allBars(self: *Seat) !?[]?*Bar {
+    _ = self;
+    const monitors = state.wayland.monitors.items;
+
+    var bars: []?*Bar = try state.gpa.alloc(?*Bar, monitors.len);
+    for (monitors, 0..) |m, i| {
+        bars[i] = m.confBar();
+    }
+    return bars;
+}
+
 fn updateTitle(self: *Seat, data: [*:0]const u8) void {
     const title = std.mem.sliceTo(data, 0);
 
@@ -140,7 +151,7 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
                     };
                 } else {
                     render.renderText(bar, self.status_text.getWritten()) catch |err| {
-                        log.err("renderTexk failed on unfocused monitor {}: {s}",
+                        log.err("renderText failed on unfocused monitor {}: {s}",
                             .{m.globalName, @errorName(err)});
                         break :renderText;
                     };
