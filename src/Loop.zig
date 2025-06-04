@@ -84,26 +84,29 @@ pub fn run(self: *Loop) !void {
             if (state.wayland.river_seat) |seat| {
                 seat.status_text.reset();
                 try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null,);
+                var focused_bar = seat.*.focusedBar() orelse continue;
 
-                if (!state.config.showStatusAllOutputs) {
-                    if (seat.focusedBar()) |bar| {
-                        render.renderText(bar, seat.status_text.getWritten()) catch |err| {
-                            log.err("renderText failed for monitor {}: {s}",
-                                .{bar.monitor.globalName, @errorName(err)});
-                            continue;
-                        };
+                render.renderText(focused_bar, seat.status_text.getWritten()) catch |err| {
+                    log.err("renderText failed for monitor {}: {s}",
+                        .{focused_bar.monitor.globalName, @errorName(err)});
+                    continue;
+                };
 
-                        bar.text.surface.commit();
-                        bar.background.surface.commit();
-                    }
-                } else {
+                focused_bar.text.surface.commit();
+                focused_bar.background.surface.commit();
+
+                if (state.config.showStatusAllOutputs) {
                     // We get all bars instead of just the focused one here
                     const bars = seat.allBars() catch |err| {
                         log.err("renderText failed for all monitors: {s}", .{@errorName(err)});
                         continue;
                     } orelse continue;
+
                     for (bars) |bar| {
                         if (bar) |b| {
+                            // Don't write to the same bar twice
+                            if (b.monitor.globalName == focused_bar.monitor.globalName) continue;
+
                             render.renderText(b, seat.status_text.getWritten()) catch |err| {
                                 log.err("renderText failed for monitor {}: {s}",
                                     .{b.monitor.globalName, @errorName(err)});
