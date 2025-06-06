@@ -98,7 +98,8 @@ pub fn run(self: *Loop) !void {
 
                 if (state.config.showStatusAllOutputs) {
                     // We get all bars instead of just the focused one here
-                    const bars = allBars() catch |err| {
+                    var bars_buffer: [8]?*Bar = [_]?*Bar{ null } ** 8;
+                    const bars = allBars(bars_buffer[0..]) catch |err| {
                         log.err("renderText failed for all monitors: {s}", .{@errorName(err)});
                         continue;
                     } orelse continue;
@@ -124,17 +125,16 @@ pub fn run(self: *Loop) !void {
     }
 }
 
-fn allBars() !?[8]?*Bar {
+fn allBars(bars: []?*Bar) !?[]?*Bar {
     const monitors = state.wayland.monitors.items;
 
-    var bars: [8]?*Bar = undefined;
     var i: usize = 0;
-    while (i < bars.len) : (i += 1) {
-        if (monitors.len > i) {
-            bars[i] = monitors[i].confBar();
-        } else {
-            bars[i] = null;
+    var j: usize = 0;
+    while (i < monitors.len) : (i += 1) {
+        bars[j] = monitors[i].confBar();
+        if (bars[j] != null) {
+            j += 1;
         }
     }
-    return bars;
+    return bars[0..j + 1];
 }
