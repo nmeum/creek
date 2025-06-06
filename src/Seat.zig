@@ -73,17 +73,6 @@ pub fn focusedBar(self: *Seat) ?*Bar {
     return null;
 }
 
-pub fn allBars(self: *Seat) !?[]?*Bar {
-    _ = self;
-    const monitors = state.wayland.monitors.items;
-
-    var bars: []?*Bar = try state.gpa.alloc(?*Bar, monitors.len);
-    for (monitors, 0..) |m, i| {
-        bars[i] = m.confBar();
-    }
-    return bars;
-}
-
 fn updateTitle(self: *Seat, data: [*:0]const u8) void {
     const title = std.mem.sliceTo(data, 0);
 
@@ -131,7 +120,12 @@ fn focusedOutput(self: *Seat, output: *wl.Output) void {
     }
 }
 
-fn barRenderText(self: *Seat, bar: *Bar) !void {
+const RenderTextError = error {
+    TextRenderError,
+    TextResetError,
+};
+
+fn barRenderText(self: *Seat, bar: *Bar) RenderTextError!void {
     if (state.config.showStatusAllOutputs) {
         render.renderText(bar, self.status_text.getWritten()) catch {
             return error.TextRenderError;
