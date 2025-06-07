@@ -120,24 +120,6 @@ fn focusedOutput(self: *Seat, output: *wl.Output) void {
     }
 }
 
-const RenderTextError = error {
-    TextRenderError,
-    TextResetError,
-};
-
-fn barRenderText(self: *Seat, bar: *Bar) RenderTextError!void {
-    if (state.config.showStatusAllOutputs) {
-        render.renderText(bar, self.status_text.getWritten()) catch {
-            return error.TextRenderError;
-        };
-    } else {
-        render.resetText(bar) catch {
-            return error.TextResetError;
-        };
-    }
-    bar.text.surface.commit();
-}
-
 fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
     var monitor: ?*Monitor = null;
     for (state.wayland.monitors.items) |m| {
@@ -149,18 +131,14 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
 
     if (monitor) |m| {
         if (m.confBar()) |bar| {
-            self.barRenderText(bar) catch |err| {
-                switch (err) {
-                    error.TextRenderError => {
-                        log.err("resetText failed for monitor {}: {s}",
-                            .{bar.monitor.globalName, @errorName(err)});
-                    },
-                    error.TextResetError => {
-                        log.err("renderText failed on unfocused monitor {}: {s}",
-                            .{m.globalName, @errorName(err)});
-                    }
-                }
-            };
+            if (!state.config.showStatusAllOutputs) {
+                render.resetText(bar) catch |err| {
+                    log.err("resetText failed on unfocus for monitor {}: {s}",
+                        .{bar.monitor.globalName, @errorName(err)});
+                    return;
+                };
+                bar.text.surface.commit();
+            }
 
             render.renderTitle(bar, null) catch |err| {
                 log.err("renderTitle failed on unfocus for monitor {}: {s}",
