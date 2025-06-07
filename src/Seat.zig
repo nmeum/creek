@@ -131,11 +131,14 @@ fn unfocusedOutput(self: *Seat, output: *wl.Output) void {
 
     if (monitor) |m| {
         if (m.confBar()) |bar| {
-            render.resetText(bar) catch |err| {
-                log.err("resetText failed for monitor {}: {s}",
-                    .{bar.monitor.globalName, @errorName(err)});
-            };
-            bar.text.surface.commit();
+            if (!state.config.showStatusAllOutputs) {
+                render.resetText(bar) catch |err| {
+                    log.err("resetText failed on unfocus for monitor {}: {s}",
+                        .{bar.monitor.globalName, @errorName(err)});
+                    return;
+                };
+                bar.text.surface.commit();
+            }
 
             render.renderTitle(bar, null) catch |err| {
                 log.err("renderTitle failed on unfocus for monitor {}: {s}",

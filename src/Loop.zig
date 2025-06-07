@@ -7,6 +7,7 @@ const io = std.io;
 
 const render = @import("render.zig");
 const Loop = @This();
+const Bar = @import("Bar.zig");
 
 const state = &@import("root").state;
 
@@ -82,20 +83,58 @@ pub fn run(self: *Loop) !void {
         // status input
         if (fds[2].revents & posix.POLL.IN != 0) {
             if (state.wayland.river_seat) |seat| {
-                if (seat.focusedBar()) |bar| {
-                    seat.status_text.reset();
-                    try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null);
+                seat.status_text.reset();
+                try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null,);
+                var focused_bar = seat.*.focusedBar() orelse continue;
 
-                    render.renderText(bar, seat.status_text.getWritten()) catch |err| {
-                        log.err("renderText failed for monitor {}: {s}",
-                            .{bar.monitor.globalName, @errorName(err)});
+                render.renderText(focused_bar, seat.status_text.getWritten()) catch |err| {
+                    log.err("renderText failed for monitor {}: {s}",
+                        .{focused_bar.monitor.globalName, @errorName(err)});
+                    continue;
+                };
+
+                focused_bar.text.surface.commit();
+                focused_bar.background.surface.commit();
+
+                if (state.config.showStatusAllOutputs) {
+                    // We get all bars instead of just the focused one here
+                    var bars_buffer: [8]?*Bar = [_]?*Bar{ null } ** 8;
+                    const bars = allBars(bars_buffer[0..]) catch |err| {
+                        log.err("renderText failed for all monitors: {s}", .{@errorName(err)});
                         continue;
-                    };
+                    } orelse continue;
 
-                    bar.text.surface.commit();
-                    bar.background.surface.commit();
+                    for (bars) |bar| {
+                        if (bar) |b| {
+                            // Don't write to the same bar twice
+                            if (b.monitor.globalName == focused_bar.monitor.globalName) continue;
+
+                            render.renderText(b, seat.status_text.getWritten()) catch |err| {
+                                log.err("renderText failed for monitor {}: {s}",
+                                    .{b.monitor.globalName, @errorName(err)});
+                                continue;
+                            };
+                         
+                            b.text.surface.commit();
+                            b.background.surface.commit();
+                        }
+                    }
                 }
             }
         }
     }
+}
+
+fn allBars(bars: []?*Bar) !?[]?*Bar {
+    const monitors = state.wayland.monitors.items;
+
+    var i: usize = 0;
+    var j: usize = 0;
+    while (i < monitors.len) : (i += 1) {
+        bars[j] = monitors[i].confBar();
+        if (bars[j] != null) {
+            j += 1;
+        }
+    }
+    return bars[0..j + 1];
 }

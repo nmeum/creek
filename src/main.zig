@@ -22,6 +22,7 @@ pub const Config = struct {
     focusFgColor: pixman.Color,
     focusBgColor: pixman.Color,
     font: *fcft.Font,
+    showStatusAllOutputs: bool,
 };
 
 pub const State = struct {
@@ -66,6 +67,7 @@ fn parseFlags(args: [][*:0]u8) !Config {
         .{ .name = "nb", .kind = .arg }, // normal background
         .{ .name = "ff", .kind = .arg }, // focused foreground
         .{ .name = "fb", .kind = .arg }, // focused background
+        .{ .name = "sao", .kind = .boolean }, // show statustext on all outputs
     }).parse(args) catch {
         usage();
     };
@@ -90,13 +92,14 @@ fn parseFlags(args: [][*:0]u8) !Config {
         .normalBgColor = try parseColorFlag(result.flags.nb, "0x282828"),
         .focusFgColor = try parseColorFlag(result.flags.ff, "0x181818"),
         .focusBgColor = try parseColorFlag(result.flags.fb, "0x7cafc2"),
+        .showStatusAllOutputs = result.flags.sao,
     };
 }
 
 pub fn usage() noreturn {
     const desc =
         \\usage: creek [-hg HEIGHT] [-fn FONT] [-nf COLOR] [-nb COLOR]
-        \\             [-ff COLOR] [-fb COLOR]
+        \\             [-ff COLOR] [-fb COLOR] [ -sao ] Show statustext on all outputs
         \\
     ;
 
