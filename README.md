@@ -24,7 +24,7 @@ On the right-hand side, the current time is shown, this is information is genera
 
 The following dependencies need to be installed:
 
-* [zig] 0.13.0
+* [zig] 0.14.0
 * [wayland] 1.21.0
 * [pixman] 0.42.0
 * [fcft] 3.1.5 (with [utf8proc] support)
@@ -57,6 +57,17 @@ In order to display the current time in the top-right corner, invoke creek as fo
     $ ( while date; do sleep 1; done ) | creek
 
 Note that for more complex setups, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
+
+### River's configuration
+
+Use `riverctl spawn` to launch creek from River's configuration file as follow:
+
+    riverctl spawn creek
+
+When combined with the two previous examples, it becomes:
+
+    riverctl spawn "( while date; do sleep 1; done ) | creek -fn Terminus:size=12 -hg 18 -nf 0xffffff -nb 0x000000"
+
 
 [dwm]: https://dwm.suckless.org/
 [River]: https://github.com/riverwm/river/
