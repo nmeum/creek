@@ -44,8 +44,8 @@ pub fn init() !Wayland {
         .display = display,
         .registry = registry,
         .fd = wfd,
-        .monitors = std.ArrayList(*Monitor).init(state.gpa),
-        .inputs = std.ArrayList(*Input).init(state.gpa),
+        .monitors = std.ArrayList(*Monitor).empty,
+        .inputs = std.ArrayList(*Input).empty,
     };
 }
 
@@ -54,8 +54,8 @@ pub fn deinit(self: *Wayland) void {
     for (self.inputs.items) |input| input.destroy();
 
     if (self.river_seat) |s| s.destroy();
-    self.monitors.deinit();
-    self.inputs.deinit();
+    self.monitors.deinit(state.gpa);
+    self.inputs.deinit(state.gpa);
 
     if (self.compositor) |global| global.destroy();
     if (self.subcompositor) |global| global.destroy();
@@ -141,9 +141,9 @@ fn bindGlobal(self: *Wayland, registry: *wl.Registry, name: u32, iface: [*:0]con
         self.control = try registry.bind(name, zriver.ControlV1, 1);
     } else if (mem.orderZ(u8, iface, wl.Output.interface.name) == .eq) {
         const monitor = try Monitor.create(registry, name);
-        try self.monitors.append(monitor);
+        try self.monitors.append(state.gpa, monitor);
     } else if (mem.orderZ(u8, iface, wl.Seat.interface.name) == .eq) {
         self.seat = try registry.bind(name, wl.Seat, 5);
-        try self.inputs.append(try Input.create(name));
+        try self.inputs.append(state.gpa, try Input.create(name));
     }
 }

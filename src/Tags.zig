@@ -107,10 +107,11 @@ pub fn handleClick(self: *Tags, x: u32) !void {
 
     if (self.monitor.bar) |bar| {
         const index = x / bar.height;
-        const payload = try std.fmt.allocPrintZ(
+        const payload = try std.fmt.allocPrintSentinel(
             state.gpa,
             "{d}",
             .{@as(u32, 1) << @as(u5, @intCast(index))},
+            0,
         );
         defer state.gpa.free(payload);
 

@@ -4,6 +4,7 @@ const mem = std.mem;
 const posix = std.posix;
 const linux = std.os.linux;
 const io = std.io;
+const fs = std.fs;
 
 const render = @import("render.zig");
 const Loop = @This();
@@ -13,7 +14,7 @@ const state = &@import("root").state;
 sfd: posix.fd_t,
 
 pub fn init() !Loop {
-    var mask = posix.empty_sigset;
+    var mask = linux.sigemptyset();
     linux.sigaddset(&mask, linux.SIG.INT);
     linux.sigaddset(&mask, linux.SIG.TERM);
     linux.sigaddset(&mask, linux.SIG.QUIT);
@@ -45,7 +46,8 @@ pub fn run(self: *Loop) !void {
         },
     };
 
-    var reader = io.getStdIn().reader();
+    var readbuffer: [1024]u8 = undefined;
+    var reader = fs.File.stdin().reader(&readbuffer);
     while (true) {
         while (true) {
             const ret = wayland.display.dispatchPending();
@@ -84,11 +86,14 @@ pub fn run(self: *Loop) !void {
             if (state.wayland.river_seat) |seat| {
                 if (seat.focusedBar()) |bar| {
                     seat.status_text.reset();
-                    try reader.streamUntilDelimiter(seat.status_text.writer(), '\n', null);
+                    // zig-wayland still uses std.io.DeprecatedWriter.
+                    var tmp_buffer: [1024]u8 = undefined;
+                    var adapter_writer = seat.status_text.writer().adaptToNewApi(&tmp_buffer);
+                    _ = try reader.interface.streamDelimiter(&adapter_writer.new_interface, '\n');
+                    try adapter_writer.new_interface.flush();
 
                     render.renderText(bar, seat.status_text.getWritten()) catch |err| {
-                        log.err("renderText failed for monitor {}: {s}",
-                            .{bar.monitor.globalName, @errorName(err)});
+                        log.err("renderText failed for monitor {}: {s}", .{ bar.monitor.globalName, @errorName(err) });
                         continue;
                     };
 
