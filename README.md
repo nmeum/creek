@@ -24,7 +24,7 @@ On the right-hand side, the current time is shown, this is information is genera
 
 The following dependencies need to be installed:
 
-* [zig] 0.13.0
+* [zig] 0.15.0
 * [wayland] 1.21.0
 * [pixman] 0.42.0
 * [fcft] 3.1.5 (with [utf8proc] support)

@@ -100,7 +100,12 @@ pub fn usage() noreturn {
         \\
     ;
 
-    io.getStdErr().writeAll(desc) catch |err| {
+    var buffer: [1024]u8 = undefined;
+    var serr = std.fs.File.stderr().writer(&buffer);
+    serr.interface.writeAll(desc) catch |err| {
+        std.debug.panic("{s}", .{@errorName(err)});
+    };
+    serr.end() catch |err| {
         std.debug.panic("{s}", .{@errorName(err)});
     };
 
