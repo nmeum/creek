@@ -12,7 +12,7 @@ const Buttons = @This();
 const state = &@import("root").state;
 
 const BUTTON_COUNT = 1;
-const labels: [BUTTON_COUNT]u16 = .{''};
+const labels: [BUTTON_COUNT]u16 = .{'R'};
 const commands: [BUTTON_COUNT][3][]const u8 = .{
     .{"/bin/sh", "-c", "$(tofi-drun)"},
 };
@@ -70,20 +70,11 @@ fn outputStatusListener(
 }
 
 pub fn handleClick(self: *Buttons, x: u32) !void {
-    const control = state.wayland.control.?;
     if (self.monitor.bar) |bar| {
-        const index = x / bar.height;
-        const payload = try std.fmt.allocPrintSentinel(
-            state.gpa,
-            "{d}",
-            .{@as(u32, 1) << @as(u5, @intCast(index))},
-            0,
-        );
-        defer state.gpa.free(payload);
-
-        control.addArgument("set-focused-tags");
-        control.addArgument(payload);
-        const callback = try control.runCommand(state.wayland.seat.?);
-        _ = callback;
+        const index = (x / bar.height);
+        _ = try std.process.Child.run(.{
+            .argv = self.buttons[index].cmd,
+            .allocator = state.gpa,
+        });
     }
 }

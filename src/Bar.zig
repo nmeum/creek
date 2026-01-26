@@ -99,6 +99,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.background.surface.commit();
 
     self.tags_width = 0;
+    self.buttons_width = 0;
     self.text_width = 0;
 
     return self;

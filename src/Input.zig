@@ -90,9 +90,6 @@ fn pointerListener(
                 const tagsSurface = bar.tags.surface;
                 const buttonsSurface = bar.buttons.surface;
 
-                if ((input.pointer.surface != tagsSurface) or
-                    (input.pointer.surface != buttonsSurface)) return;
-
                 const x: u32 = @intCast(input.pointer.x);
                 if(input.pointer.surface == tagsSurface) {
                     if (x < bar.height * @as(u16, bar.monitor.tags.tags.len)) {

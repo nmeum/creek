@@ -114,7 +114,7 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
     }
 
     // calculate width
-    const title_start = bar.tags_width;
+    const title_start = bar.tags_width + bar.buttons_width;
     const text_start = if (bar.text_width == 0) blk: {
         break :blk 0;
     } else blk: {
@@ -127,7 +127,7 @@ pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
     };
 
     // set subsurface offset
-    const x_offset = bar.tags_width;
+    const x_offset = bar.tags_width + bar.buttons_width;
     const y_offset = 0;
     bar.title.subsurface.setPosition(x_offset, y_offset);
 
