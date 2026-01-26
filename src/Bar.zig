@@ -27,8 +27,10 @@ background: struct {
 title: Widget,
 tags: Widget,
 text: Widget,
+buttons: Widget,
 
 tags_width: u16,
+buttons_width: u16,
 text_width: u16,
 
 abbrev_width: u16,
@@ -65,6 +67,7 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.title = try Widget.init(self.background.surface);
     self.tags = try Widget.init(self.background.surface);
     self.text = try Widget.init(self.background.surface);
+    self.buttons = try Widget.init(self.background.surface);
 
     // calculate right padding for status text
     const font = state.config.font;
@@ -92,9 +95,11 @@ pub fn create(monitor: *Monitor) !*Bar {
     self.tags.surface.commit();
     self.title.surface.commit();
     self.text.surface.commit();
+    self.buttons.surface.commit();
     self.background.surface.commit();
 
     self.tags_width = 0;
+    self.buttons_width = 0;
     self.text_width = 0;
 
     return self;
@@ -113,6 +118,7 @@ pub fn destroy(self: *Bar) void {
     self.title.deinit();
     self.tags.deinit();
     self.text.deinit();
+    self.buttons.deinit();
     state.gpa.destroy(self);
 }
 
@@ -145,9 +151,15 @@ fn layerSurfaceListener(
                 return;
             };
 
+            render.renderButtons(bar) catch |err| {
+                log.err("renderButtons failed for monitor {}: {s}", .{ bar.monitor.globalName, @errorName(err)});
+                return;
+            };
+
             bar.tags.surface.commit();
             bar.title.surface.commit();
             bar.text.surface.commit();
+            bar.buttons.surface.commit();
             bar.background.surface.commit();
         },
         .closed => bar.destroy(),

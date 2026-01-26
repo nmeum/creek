@@ -88,15 +88,26 @@ fn pointerListener(
                 if (!bar.configured) return;
 
                 const tagsSurface = bar.tags.surface;
-                if (input.pointer.surface != tagsSurface) return;
+                const buttonsSurface = bar.buttons.surface;
 
                 const x: u32 = @intCast(input.pointer.x);
-                if (x < bar.height * @as(u16, bar.monitor.tags.tags.len)) {
-                    bar.monitor.tags.handleClick(x) catch |err| {
-                        log.err("handleClick failed for monitor {}: {s}",
+                if(input.pointer.surface == tagsSurface) {
+                    if (x < bar.height * @as(u16, bar.monitor.tags.tags.len)) {
+                        bar.monitor.tags.handleClick(x) catch |err| {
+                            log.err("handleClick failed for monitor {}: {s}",
+                                    .{bar.monitor.globalName, @errorName(err)});
+                            return;
+                        };
+                    }
+                }
+                else if(input.pointer.surface == buttonsSurface) {
+                    if(x < bar.tags_width + bar.buttons_width) {
+                        bar.monitor.buttons.handleClick(x) catch |err| {
+                            log.err("handleClick failed for monitor {}: {s}", 
                                 .{bar.monitor.globalName, @errorName(err)});
-                        return;
-                    };
+                            return;
+                        };
+                    }
                 }
             }
         },

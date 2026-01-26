@@ -5,6 +5,7 @@ const wl = @import("wayland").client.wl;
 
 const Bar = @import("Bar.zig");
 const Tags = @import("Tags.zig");
+const Buttons = @import("Buttons.zig");
 const Seat = @import("Seat.zig");
 pub const Monitor = @This();
 
@@ -16,6 +17,7 @@ scale: i32,
 
 bar: ?*Bar,
 tags: *Tags,
+buttons: *Buttons,
 
 pub fn create(registry: *wl.Registry, name: u32) !*Monitor {
     const self = try state.gpa.create(Monitor);
@@ -25,6 +27,7 @@ pub fn create(registry: *wl.Registry, name: u32) !*Monitor {
 
     self.bar = null;
     self.tags = try Tags.create(self);
+    self.buttons = try Buttons.create(self);
 
     self.output.setListener(*Monitor, listener, self);
     return self;
@@ -35,6 +38,7 @@ pub fn destroy(self: *Monitor) void {
         bar.destroy();
     }
     self.tags.destroy();
+    self.buttons.destroy();
     state.gpa.destroy(self);
 }
 

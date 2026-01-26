@@ -32,22 +32,22 @@ pub fn run(self: *Loop) !void {
         .{
             .fd = self.sfd,
             .events = posix.POLL.IN,
-            .revents = undefined,
+            .revents = 0,
         },
         .{
             .fd = wayland.fd,
             .events = posix.POLL.IN,
-            .revents = undefined,
+            .revents = 0,
         },
         .{
             .fd = posix.STDIN_FILENO,
             .events = posix.POLL.IN,
-            .revents = undefined,
+            .revents = 0,
         },
     };
 
     var readbuffer: [1024]u8 = undefined;
-    var reader = fs.File.stdin().reader(&readbuffer);
+    
     while (true) {
         while (true) {
             const ret = wayland.display.dispatchPending();
@@ -80,25 +80,39 @@ pub fn run(self: *Loop) !void {
             const errno = wayland.display.flush();
             if (errno != .SUCCESS) return;
         }
-
         // status input
-        if (fds[2].revents & posix.POLL.IN != 0) {
+        if ((fds[2].revents & posix.POLL.IN != 0)) {
             if (state.wayland.river_seat) |seat| {
                 if (seat.focusedBar()) |bar| {
                     seat.status_text.reset();
                     // zig-wayland still uses std.io.DeprecatedWriter.
-                    var tmp_buffer: [1024]u8 = undefined;
-                    var adapter_writer = seat.status_text.writer().adaptToNewApi(&tmp_buffer);
-                    _ = try reader.interface.streamDelimiter(&adapter_writer.new_interface, '\n');
-                    try adapter_writer.new_interface.flush();
+                    var bytes_read: usize = 0;
+                    while (bytes_read < readbuffer.len) {
+                        var byte: [1]u8 = undefined;
+                        const n = posix.read(posix.STDIN_FILENO, &byte) catch |err| {
+                            log.err("read failed: {s}", .{@errorName(err)});
+                            break;
+                        };
+                        if (n == 0) break; // EOF
+                        if (byte[0] == '\n') break;
+                        readbuffer[bytes_read] = byte[0];
+                        bytes_read += 1;
+                    }
 
-                    render.renderText(bar, seat.status_text.getWritten()) catch |err| {
-                        log.err("renderText failed for monitor {}: {s}", .{ bar.monitor.globalName, @errorName(err) });
-                        continue;
-                    };
+                    std.debug.print("renderText:\n", .{});
+                    if(bytes_read > 0) {
+                        const line = readbuffer[0..bytes_read];
+                        try seat.status_text.writer().writeAll(line);
 
-                    bar.text.surface.commit();
-                    bar.background.surface.commit();
+                        render.renderText(bar, seat.status_text.getWritten()) catch |err| {
+                            log.err("renderText failed for monitor {}: {s}",
+                                    .{ bar.monitor.globalName, @errorName(err) });
+                            continue;
+                        };
+
+                        bar.text.surface.commit();
+                        bar.background.surface.commit();
+                    }
                 }
             }
         }
