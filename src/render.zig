@@ -197,6 +197,7 @@ pub fn resetText(bar: *Bar) !void {
     surface.setBufferScale(bar.monitor.scale);
     surface.damageBuffer(0, 0, bar.text_width, bar.height);
     surface.attach(buffer.buffer, 0, 0);
+
 }
 
 pub fn renderText(bar: *Bar, text: []const u8) !void {
@@ -335,8 +336,6 @@ fn renderButton(
 
     const outer_color = button.bgColor();
     _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
-
-    //std.debug.print("\n\nhi\n\n", .{});
 
     const glyph_color = button.fgColor();
     const font = state.config.font;
