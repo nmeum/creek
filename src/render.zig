@@ -9,6 +9,7 @@ const time = @cImport(@cInclude("time.h"));
 const Buffer = @import("Buffer.zig");
 const Bar = @import("Bar.zig");
 const Tag = @import("Tags.zig").Tag;
+const Button = @import("Buttons.zig").Button;
 
 const state = &@import("root").state;
 
@@ -50,6 +51,33 @@ pub fn renderTags(bar: *Bar) !void {
     try renderTag(buffer.pix.?, &Tag{ .label = '|' }, bar.height, offset);
 
     bar.tags_width = width;
+    surface.setBufferScale(bar.monitor.scale);
+    surface.damageBuffer(0, 0, width, bar.height);
+    surface.attach(buffer.buffer, 0, 0);
+}
+
+pub fn renderButtons(bar: *Bar) !void {
+    
+    const surface = bar.buttons.surface;
+    const buttons = bar.monitor.buttons.buttons;
+    const buffers = &bar.buttons.buffers;
+    const shm = state.wayland.shm.?;
+    const width = bar.height * @as(u16, buttons.len);
+    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
+
+    if(buffer.buffer == null) return;
+    buffer.busy = true;
+
+    const x_offset = bar.tags_width;
+    const y_offset = 0;
+    bar.buttons.subsurface.setPosition(x_offset, y_offset);
+
+    for(&buttons, 0..) |*btn, i| {
+        const offset = bar.height * i;
+        try renderButton(buffer.pix.?, btn, bar.height, @intCast(offset));
+    }
+    
+    bar.buttons_width = width; 
     surface.setBufferScale(bar.monitor.scale);
     surface.damageBuffer(0, 0, width, bar.height);
     surface.attach(buffer.buffer, 0, 0);
@@ -289,6 +317,31 @@ fn renderTag(
     const font = state.config.font;
     const char = pixman.Image.createSolidFill(glyph_color).?;
     const glyph = try font.rasterizeCharUtf32(tag.label, .default);
+    const x = offset + @divFloor(size - glyph.width, 2);
+    const y = @divFloor(size - glyph.height, 2);
+    pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
+}
+
+fn renderButton(
+    pix: *pixman.Image,
+    button: *const Button,
+    size: u16,
+    offset: i16,
+) !void {
+
+    const outer = [_]pixman.Rectangle16{
+        .{ .x = offset, .y = 0, .width = size, .height = size },
+    };
+
+    const outer_color = button.bgColor();
+    _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
+
+    //std.debug.print("\n\nhi\n\n", .{});
+
+    const glyph_color = button.fgColor();
+    const font = state.config.font;
+    const char = pixman.Image.createSolidFill(glyph_color).?;
+    const glyph = try font.rasterizeCharUtf32(button.label, .default);
     const x = offset + @divFloor(size - glyph.width, 2);
     const y = @divFloor(size - glyph.height, 2);
     pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
