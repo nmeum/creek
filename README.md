@@ -58,6 +58,29 @@ In order to display the current time in the top-right corner, invoke creek as fo
 
 Note that for more complex setups, a shell script may [not be the best option](https://flak.tedunangst.com/post/rough-idling).
 
+### Protocol
+
+Creek reads newline-delimited commands from stdin and reports input events on stdout:
+
+    click
+    status
+    scroll :<up|down>
+
+Tag items are one-based (starting at 1); `*` marks the current tag, and tag labels can be any string. Creek only reports events, leaving their meaning to external programs.
+
+Example:
+
+Sent to Creek (stdin):
+
+    12:34 ⏻ 🔅
+    tags 1,2,*3,4
+
+Emitted by Creek (stdout):
+
+    click 3
+    status ⏻
+    scroll 🔅:up
+
 [dwm]: https://dwm.suckless.org/
 [River]: https://github.com/riverwm/river/
 [malleable]: https://malleable.systems/

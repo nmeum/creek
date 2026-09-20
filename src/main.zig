@@ -121,9 +121,13 @@ pub fn main(init: process.Init) anyerror!void {
 
     state.io = init.io;
     state.gpa = init.gpa;
+
     state.wayland = try Wayland.init();
     state.loop = try Loop.init();
+
     var args = try init.minimal.args.toSlice(state.gpa);
+    defer state.gpa.free(args);
+
     state.config = parseFlags(args[1..]) catch |err| {
         log.err("Option parsing failed with: {s}", .{@errorName(err)});
         usage();
@@ -131,6 +135,7 @@ pub fn main(init: process.Init) anyerror!void {
 
     defer {
         state.wayland.deinit();
+        state.config.font.destroy();
     }
 
     try state.wayland.registerGlobals();

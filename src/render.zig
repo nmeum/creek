@@ -4,11 +4,10 @@ const unicode = std.unicode;
 
 const fcft = @import("fcft");
 const pixman = @import("pixman");
-const time = @cImport(@cInclude("time.h"));
 
 const Buffer = @import("Buffer.zig");
 const Bar = @import("Bar.zig");
-const Tag = @import("Tags.zig").Tag;
+const Tags = @import("Tags.zig");
 
 const state = &@import("root").state;
 
@@ -27,32 +26,24 @@ pub fn toUtf8(gpa: mem.Allocator, bytes: []const u8) ![]u32 {
     return runes.toOwnedSlice(gpa);
 }
 
-pub fn renderTags(bar: *Bar) !void {
-    const surface = bar.tags.surface;
-    const tags = bar.monitor.tags.tags;
+const VisualBounds = struct {
+    left: i32,
+    width: i32,
+};
 
-    const buffers = &bar.tags.buffers;
-    const shm = state.wayland.shm.?;
+fn visualBounds(glyphs: [*]*const fcft.Glyph, count: usize) VisualBounds {
+    var left: i32 = std.math.maxInt(i32);
+    var right: i32 = std.math.minInt(i32);
+    var x: i32 = 0;
 
-    const width = bar.height * @as(u16, tags.len + 1);
-    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
-    if (buffer.buffer == null) return;
-    buffer.busy = true;
-
-    for (&tags, 0..) |*tag, i| {
-        const offset: i16 = @intCast(bar.height * i);
-        try renderTag(buffer.pix.?, tag, bar.height, offset);
+    for (glyphs[0..count]) |glyph| {
+        const glyph_left = x + @as(i32, @intCast(glyph.x));
+        left = @min(left, glyph_left);
+        right = @max(right, glyph_left + @as(i32, @intCast(glyph.width)));
+        x += @intCast(glyph.advance.x);
     }
 
-    // Separator tag to visually separate last focused tag from
-    // focused window title (both use the same background color).
-    const offset: i16 = @intCast(bar.height * tags.len);
-    try renderTag(buffer.pix.?, &Tag{ .label = '|' }, bar.height, offset);
-
-    bar.tags_width = width;
-    surface.setBufferScale(bar.monitor.scale);
-    surface.damageBuffer(0, 0, width, bar.height);
-    surface.attach(buffer.buffer, 0, 0);
+    return .{ .left = left, .width = right - left };
 }
 
 fn renderRun(start: i32, buffer: *Buffer, image: *pixman.Image, bar: *Bar, glyphs: [*]*const fcft.Glyph, count: usize) !i32 {
@@ -70,6 +61,167 @@ fn renderRun(start: i32, buffer: *Buffer, image: *pixman.Image, bar: *Bar, glyph
     }
 
     return x;
+}
+
+fn clearImage(
+    image: *pixman.Image,
+    width: u16,
+    height: u16,
+    color: *pixman.Color,
+) void {
+    const rect = [_]pixman.Rectangle16{.{
+        .x = 0,
+        .y = 0,
+        .width = width,
+        .height = height,
+    }};
+    _ = pixman.Image.fillRectangles(.src, image, color, 1, &rect);
+}
+
+fn highlightTag(
+    bar: *Bar,
+    image: *pixman.Image,
+    bounds: *std.ArrayList(Tags.Bounds),
+    index: usize,
+    alpha: u16,
+) void {
+    if (index >= bounds.items.len) return;
+    fillTagHighlight(image, bounds.items[index], alpha, @intCast(bar.height));
+}
+
+fn fillTagHighlight(
+    image: *pixman.Image,
+    bounds: Tags.Bounds,
+    alpha: u16,
+    height: u16,
+) void {
+    const color = pixman.Color{
+        .red = alpha,
+        .green = alpha,
+        .blue = alpha,
+        .alpha = alpha,
+    };
+    const rect = [_]pixman.Rectangle16{.{
+        .x = @intCast(bounds.left),
+        .y = 0,
+        .width = bounds.right - bounds.left,
+        .height = height,
+    }};
+
+    _ = pixman.Image.fillRectangles(.over, image, &color, 1, &rect);
+}
+
+pub fn renderTags(bar: *Bar) !void {
+    const surface = bar.tags.surface;
+    const shm = state.wayland.shm.?;
+
+    const tag_padding: i32 = 15;
+
+    const Run = @typeInfo(@TypeOf(
+        state.config.font.rasterizeTextRunUtf32(&[_]u32{}, .default),
+    )).error_union.payload;
+
+    const tags = bar.monitor.tags.list.items;
+    const runs = try state.gpa.alloc(?Run, tags.len);
+    const tag_widths = try state.gpa.alloc(i32, tags.len);
+    defer {
+        for (runs) |*run| {
+            if (run.*) |value| value.*.destroy();
+        }
+        state.gpa.free(runs);
+        state.gpa.free(tag_widths);
+    }
+
+    for (tags, 0..) |tag, index| {
+        runs[index] = null;
+
+        const runes = try toUtf8(state.gpa, tag.name);
+        defer state.gpa.free(runes);
+
+        if (runes.len == 0) continue;
+
+        const run = try state.config.font.rasterizeTextRunUtf32(runes, .default);
+        runs[index] = run;
+
+        var run_width: i32 = 0;
+        for (run.glyphs[0..run.count]) |glyph| {
+            run_width += @intCast(glyph.advance.x);
+        }
+        tag_widths[index] = run_width;
+    }
+
+    var total_width: i32 = 0;
+    const click_bounds = &bar.monitor.tags.click_bounds;
+    try click_bounds.resize(state.gpa, runs.len);
+
+    for (tag_widths, 0..) |width, index| {
+        const box_width = width + tag_padding * 2;
+        click_bounds.items[index] = .{
+            .left = @intCast(total_width),
+            .right = @intCast(total_width + box_width),
+        };
+        total_width += box_width;
+    }
+
+    bar.tags_width = @intCast(total_width);
+
+    const buffers = &bar.tags.buffers;
+    const buffer = Buffer.nextBuffer(
+        buffers,
+        shm,
+        bar.tags_width,
+        bar.height,
+    ) catch |err| switch (err) {
+        error.NoAvailableBuffers => return,
+        else => return err,
+    };
+    if (buffer.buffer == null) return;
+    buffer.busy = true;
+
+    var bg_color = state.config.normalBgColor;
+    clearImage(buffer.pix.?, bar.tags_width, bar.height, &bg_color);
+
+    if (bar.monitor.tags.current) |index| {
+        highlightTag(bar, buffer.pix.?, click_bounds, index, 0x3333);
+    }
+
+    if (bar.monitor.tags.hovered) |index| {
+        if (bar.monitor.tags.current != index) {
+            highlightTag(bar, buffer.pix.?, click_bounds, index, 0x4444);
+        }
+    }
+
+    const fg_color = pixman.Image.createSolidFill(
+        &state.config.normalFgColor,
+    ).?;
+    defer _ = fg_color.unref();
+
+    for (runs, 0..) |maybe_run, index| {
+        const run = maybe_run orelse continue;
+        if (run.count == 0) continue;
+
+        const bounds = click_bounds.items[index];
+        const box_left: i32 = @intCast(bounds.left);
+        const box_width: i32 =
+            @as(i32, bounds.right) - box_left;
+
+        const visual = visualBounds(run.glyphs, run.count);
+        const visual_offset = @divTrunc(box_width - visual.width, 2);
+        const start_x = box_left + visual_offset - visual.left;
+
+        _ = try renderRun(
+            start_x,
+            buffer,
+            fg_color,
+            bar,
+            run.glyphs,
+            run.count,
+        );
+    }
+
+    surface.setBufferScale(bar.monitor.scale);
+    surface.damageBuffer(0, 0, bar.tags_width, bar.height);
+    surface.attach(buffer.buffer, 0, 0);
 }
 
 pub fn renderTitle(bar: *Bar, title: ?[]const u8) !void {
@@ -172,11 +324,17 @@ pub fn resetText(bar: *Bar) !void {
 }
 
 pub fn renderText(bar: *Bar, text: []const u8) !void {
+    const trimmed = mem.trim(u8, text, " \r\n\x00");
+
+    const cached_text = try state.gpa.dupe(u8, trimmed);
+    if (bar.status_text) |old_text| state.gpa.free(old_text);
+    bar.status_text = cached_text;
+
     const surface = bar.text.surface;
     const shm = state.wayland.shm.?;
 
     // utf8 encoding
-    const runes = try toUtf8(state.gpa, text);
+    const runes = try toUtf8(state.gpa, trimmed);
     defer state.gpa.free(runes);
 
     // rasterize
@@ -185,111 +343,65 @@ pub fn renderText(bar: *Bar, text: []const u8) !void {
     defer run.destroy();
 
     // compute total width
-    var i: usize = 0;
-    var width: u16 = 0;
-    while (i < run.count) : (i += 1) {
-        width += @intCast(run.glyphs[i].advance.x);
+    var status_width: u16 = 0;
+    for (run.glyphs[0..run.count]) |glyph| {
+        status_width += @intCast(glyph.advance.x);
     }
 
     // set subsurface offset
     const font_height: u32 = @intCast(state.config.font.height);
-    const x_offset: i32 = @intCast(bar.width - width - bar.text_padding);
     const y_offset: i32 = @intCast(@divFloor(bar.height - font_height, 2));
-    bar.text.subsurface.setPosition(x_offset, y_offset);
+
+    bar.tags.subsurface.setPosition(0, 0);
+    bar.text.subsurface.setPosition(0, y_offset);
 
     const buffers = &bar.text.buffers;
-    const buffer = try Buffer.nextBuffer(buffers, shm, width, bar.height);
+    const buffer = try Buffer.nextBuffer(buffers, shm, bar.width, bar.height);
     if (buffer.buffer == null) return;
     buffer.busy = true;
 
-    const bg_area = [_]pixman.Rectangle16{
-        .{ .x = 0, .y = 0, .width = width, .height = bar.height },
-    };
-    const bg_color = mem.zeroes(pixman.Color);
-    _ = pixman.Image.fillRectangles(.src, buffer.pix.?, &bg_color, 1, &bg_area);
+    var bg_color = mem.zeroes(pixman.Color);
+    clearImage(buffer.pix.?, bar.width, bar.height, &bg_color);
 
-    var x: i32 = 0;
-    i = 0;
-    const color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
-    while (i < run.count) : (i += 1) {
-        const glyph = run.glyphs[i];
-        x += @intCast(glyph.x);
+    const initial_x_status: i32 = if (bar.width > status_width + bar.text_padding)
+        @intCast(bar.width - status_width - bar.text_padding)
+    else
+        0;
+
+    var current_x: i32 = initial_x_status;
+    bar.status_clicks.clearRetainingCapacity();
+
+    const fg_color = pixman.Image.createSolidFill(&state.config.normalFgColor).?;
+    defer _ = fg_color.unref();
+
+    for (run.glyphs[0..run.count]) |glyph| {
+        try bar.status_clicks.append(state.gpa, .{
+            .left = current_x,
+            .right = current_x + @as(i32, @intCast(glyph.advance.x)),
+            .rune = glyph.cp,
+        });
+
         const y = state.config.font.ascent - @as(i32, @intCast(glyph.y));
-        pixman.Image.composite32(.over, color, glyph.pix, buffer.pix.?, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
-        x += glyph.advance.x - @as(i32, @intCast(glyph.x));
+
+        pixman.Image.composite32(
+            .over,
+            fg_color,
+            glyph.pix,
+            buffer.pix.?,
+            0,
+            0,
+            0,
+            0,
+            current_x,
+            y,
+            glyph.width,
+            glyph.height,
+        );
+
+        current_x += @as(i32, @intCast(glyph.advance.x));
     }
 
     surface.setBufferScale(bar.monitor.scale);
-    surface.damageBuffer(0, 0, width, bar.height);
+    surface.damageBuffer(0, 0, bar.width, bar.height);
     surface.attach(buffer.buffer, 0, 0);
-
-    // render title again if text width changed
-    if (width != bar.text_width) {
-        bar.text_width = width;
-
-        if (state.wayland.river_seat) |seat| {
-            try seat.mtx.lock(state.io);
-            defer seat.mtx.unlock(state.io);
-
-            try renderTitle(bar, seat.window_title);
-            bar.title.surface.commit();
-            bar.background.surface.commit();
-        }
-    }
-}
-
-fn renderTag(
-    pix: *pixman.Image,
-    tag: *const Tag,
-    size: u16,
-    offset: i16,
-) !void {
-    const outer = [_]pixman.Rectangle16{
-        .{ .x = offset, .y = 0, .width = size, .height = size },
-    };
-    const outer_color = tag.bgColor();
-    _ = pixman.Image.fillRectangles(.over, pix, outer_color, 1, &outer);
-
-    if (tag.occupied) {
-        const font_height: u16 = @intCast(state.config.font.height);
-
-        // Constants taken from dwm-6.3 drawbar function.
-        const boxs: i16 = @intCast(font_height / 9);
-        const boxw: u16 = font_height / 6 + 2;
-
-        const box = pixman.Rectangle16{
-            .x = offset + boxs,
-            .y = boxs,
-            .width = boxw,
-            .height = boxw,
-        };
-
-        const box_color = if (tag.focused) blk: {
-            break :blk &state.config.normalBgColor;
-        } else blk: {
-            break :blk tag.fgColor();
-        };
-
-        _ = pixman.Image.fillRectangles(.over, pix, box_color, 1, &[_]pixman.Rectangle16{box});
-        if (!tag.focused) {
-            const border = 1; // size of the border
-            const inner = pixman.Rectangle16{
-                .x = box.x + border,
-                .y = box.y + border,
-                .width = box.width - (2 * border),
-                .height = box.height - (2 * border),
-            };
-
-            const inner_color = tag.bgColor();
-            _ = pixman.Image.fillRectangles(.over, pix, inner_color, 1, &[_]pixman.Rectangle16{inner});
-        }
-    }
-
-    const glyph_color = tag.fgColor();
-    const font = state.config.font;
-    const char = pixman.Image.createSolidFill(glyph_color).?;
-    const glyph = try font.rasterizeCharUtf32(tag.label, .default);
-    const x = offset + @divFloor(size - glyph.width, 2);
-    const y = @divFloor(size - glyph.height, 2);
-    pixman.Image.composite32(.over, char, glyph.pix, pix, 0, 0, 0, 0, x, y, glyph.width, glyph.height);
 }

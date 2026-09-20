@@ -5,7 +5,6 @@ const wl = @import("wayland").client.wl;
 
 const Bar = @import("Bar.zig");
 const Tags = @import("Tags.zig");
-const Seat = @import("Seat.zig");
 pub const Monitor = @This();
 
 const state = &@import("root").state;
@@ -17,9 +16,9 @@ scale: i32,
 bar: ?*Bar,
 tags: *Tags,
 
-pub fn create(registry: *wl.Registry, name: u32) !*Monitor {
+pub fn create(output: *wl.Output, name: u32) !*Monitor {
     const self = try state.gpa.create(Monitor);
-    self.output = try registry.bind(name, wl.Output, 4);
+    self.output = output;
     self.globalName = name;
     self.scale = 1;
 

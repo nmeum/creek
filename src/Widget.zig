@@ -18,6 +18,7 @@ pub fn init(background: *wl.Surface) !Widget {
 
     const surface = try compositor.createSurface();
     const subsurface = try subcompositor.getSubsurface(surface, background);
+    subsurface.placeAbove(background);
 
     return Widget{
         .surface = surface,
