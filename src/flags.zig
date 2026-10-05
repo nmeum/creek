@@ -40,7 +40,7 @@ pub fn parser(comptime Arg: type, comptime flags: []const Flag) type {
             pub const Flags = flags_type: {
                 var field_names: [flags.len][:0]const u8 = undefined;
                 var field_types: [flags.len]type = undefined;
-                var field_attrs: [flags.len]std.builtin.Type.StructField.Attributes = undefined;
+                var field_attrs: [flags.len]std.builtin.Type.Struct.FieldAttributes = undefined;
                 for (flags, 0..) |flag, i| {
                     field_names[i] = flag.name;
                     switch (flag.kind) {
