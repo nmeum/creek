@@ -31,6 +31,14 @@ pub fn build(b: *std.Build) void {
     const pixman = b.dependency("pixman", .{}).module("pixman");
     const fcft = b.dependency("fcft", .{}).module("fcft");
 
+    const time = b.addTranslateC(.{
+        .root_source_file = b.addWriteFiles().add("z_time.h",
+            \\#include <time.h>
+        ),
+        .target = target,
+        .optimize = optimize,
+    });
+
     const exe = b.addExecutable(.{
         .name = "creek",
         .root_module = b.createModule(.{
@@ -50,6 +58,8 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("fcft", fcft);
     exe.root_module.linkSystemLibrary("fcft", .{});
+
+    exe.root_module.addImport("time", time.createModule());
 
     b.installArtifact(exe);
 
