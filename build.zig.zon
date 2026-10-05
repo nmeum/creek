@@ -9,8 +9,8 @@
             .hash = "pixman-0.3.0-LClMnz2VAAAs7QSCGwLimV5VUYx0JFnX5xWU6HwtMuDX",
         },
         .wayland = .{
-            .url = "https://codeberg.org/ifreund/zig-wayland/archive/4a150a04f76f7329e80280661355c04328369d1f.tar.gz",
-            .hash = "wayland-0.6.0-dev-lQa1krD8AQBlMqwuhAMJjPQKXvpRByZBxxqMVAZ7yzbG",
+            .url = "https://codeberg.org/ifreund/zig-wayland/archive/5c01e66af4bd2b3672250c31f1a8036a720eb078.tar.gz",
+            .hash = "wayland-0.7.0-dev-lQa1krf8AQDEncPPkLgIo8fq4kXqSRsGdG1haA2hPj_w",
         },
         .fcft = .{
             .url = "https://git.sr.ht/~novakane/zig-fcft/archive/v3.0.0.tar.gz",
