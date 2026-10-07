@@ -4,7 +4,7 @@ const unicode = std.unicode;
 
 const fcft = @import("fcft");
 const pixman = @import("pixman");
-const time = @cImport(@cInclude("time.h"));
+const time = @import("time");
 
 const Buffer = @import("Buffer.zig");
 const Bar = @import("Bar.zig");
